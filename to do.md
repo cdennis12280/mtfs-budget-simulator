@@ -22,11 +22,13 @@
 - Visual KPI cards showing policy vs. forecast
 - Demonstrates S151's statutory duty to set & maintain adequate reserves
 
-### 3. Multi-Scenario Statutory Report Generator
+### 3. ✅ Multi-Scenario Statutory Report Generator (COMPLETED)
 - Export scenarios + assumptions + KPIs into audit-ready PDF
 - Professional template with methodology notes, statutory disclaimers, recommendation narrative
 - Auditor sign-off page
 - Gives councillors a polished, governance-grade artefact
+- Integration: app/pages/7_reports.py dashboard with multi-scenario selector
+- Audit logging for all statutory report exports
 
 ### 4. Excel / Power BI Data Export
 - Export scenario data + time series as `.xlsx` with multiple worksheets
