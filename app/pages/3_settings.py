@@ -4,6 +4,15 @@ User preferences for the MTFS Budget Gap Simulator
 """
 
 import streamlit as st
+import sys
+from pathlib import Path
+
+# Add modules to path
+modules_path = Path(__file__).parent.parent.parent / 'modules'
+sys.path.insert(0, str(modules_path))
+
+from reserves_policy import ReservesPolicy
+from audit_log import get_audit_log
 
 st.title("⚙️ Settings & Preferences")
 
@@ -39,6 +48,52 @@ council_colour = st.color_picker(
     help="Used in headers and highlights."
 )
 st.session_state['council_colour'] = council_colour
+
+# Reserves Policy Configuration
+st.markdown("## Reserves Policy (S151 Governance)")
+st.markdown("Define your council's reserves policy thresholds for financial resilience monitoring.")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    min_reserves = st.slider(
+        "Minimum Reserves (%)",
+        min_value=0.0,
+        max_value=20.0,
+        value=st.session_state.get('reserves_policy_min', 5.0),
+        step=0.5,
+        help="Minimum reserves as % of net revenue budget. Typical range 5-10%."
+    )
+    st.session_state['reserves_policy_min'] = min_reserves
+
+with col2:
+    target_reserves = st.slider(
+        "Target Reserves (%)",
+        min_value=0.0,
+        max_value=30.0,
+        value=st.session_state.get('reserves_policy_target', 10.0),
+        step=0.5,
+        help="Target reserves as % of net revenue budget. Typical range 10-15%."
+    )
+    st.session_state['reserves_policy_target'] = target_reserves
+
+with col3:
+    max_reserves = st.slider(
+        "Maximum Reserves (%)",
+        min_value=0.0,
+        max_value=50.0,
+        value=st.session_state.get('reserves_policy_max', 25.0),
+        step=1.0,
+        help="Maximum reserves as % of net revenue budget. Prevents over-accumulation."
+    )
+    st.session_state['reserves_policy_max'] = max_reserves
+
+st.info(f"""
+**Policy Summary:**
+- 🔴 **RED**: Reserves below {min_reserves}% of budget (non-compliant)
+- 🟡 **AMBER**: Reserves below target {target_reserves}% (below ideal) or above max {max_reserves}% (over-funded)
+- 🟢 **GREEN**: Reserves in target range ({min_reserves}% to {target_reserves}%)
+""")
 
 # Currency & Units
 st.markdown("## Units & Format")
@@ -102,6 +157,15 @@ st.session_state['include_assumptions'] = include_assumptions
 st.markdown("---")
 
 if st.button("✅ Save All Settings"):
+    audit = get_audit_log()
+    # Log reserves policy changes
+    audit.log_entry(
+        action='settings_change',
+        user='system',
+        key='reserves_policy',
+        new_value=f"min={min_reserves}%, target={target_reserves}%, max={max_reserves}%",
+        notes='Reserves policy thresholds updated via Settings page'
+    )
     st.success("Settings saved to your session. These preferences will persist during your session.")
 
 st.markdown("---")
