@@ -22,6 +22,7 @@ from calculations import MTFSCalculator
 from scenarios import Scenarios
 from rag_rating import RAGRating
 from report import generate_pdf_report
+from commercial import CommercialProject
 
 
 # ============================================================================
@@ -378,6 +379,63 @@ rag_rating, rag_reasoning = RAGRating.get_rating(
     base_budget_year1,
     final_reserves_pct
 )
+
+# === S151 Persona: Global risk overrides ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### S151 Override (Global Risk Parameters)")
+override_pwlb = st.sidebar.number_input("Assume PWLB interest rate (%)", value=4.5, step=0.1)
+override_reserve_floor = st.sidebar.number_input("Reserve floor (£m)", value=10.0, step=1.0)
+override_investment_threshold = st.sidebar.slider("Max capital exposure (% of budget) before RED", 1.0, 20.0, 5.0, 1.0)
+
+# Sample commercial projects
+projA = CommercialProject(name='Commercial Property A', capital_cost=30.0, annual_income_target=2.0, life_years=40, operating_costs=0.2, capital_receipt=0.0)
+projB = CommercialProject(name='District Energy Scheme', capital_cost=20.0, annual_income_target=1.6, life_years=30, operating_costs=0.1, capital_receipt=0.0)
+projC = CommercialProject(name='Service Transformation (capital led)', capital_cost=10.0, annual_income_target=0.5, life_years=10, operating_costs=0.05, capital_receipt=2.0)
+
+commercial_projects = [projA, projB, projC]
+
+# Commercialisation section
+st.markdown("---")
+st.markdown("## Commercial Projects & S151 Controls")
+cols = st.columns(len(commercial_projects))
+for idx, proj in enumerate(commercial_projects):
+    with cols[idx]:
+        st.subheader(proj.name)
+        real = st.slider(f"Income realisation % ({proj.name})", 50, 100, 80, 5, key=f"real_{idx}")
+        use_capital_receipt = st.checkbox(f"Use capital receipt for one-off revenue ({proj.name})", value=False, key=f"cap_{idx}")
+        sens = proj.sensitivity_summary(override_pwlb)
+        net = proj.net_return(real, override_pwlb)
+        st.write(f"Projected income @ {real}%: £{proj.projected_income(real):.2f}m")
+        st.write(f"Annual debt service (@{override_pwlb:.2f}%): £{proj.annual_debt_service(override_pwlb):.2f}m")
+        st.write(f"Net return: £{net['net_return']:.2f}m (ROI {net['roi_pct']:.2f}%, spread {net['spread_pct']:.2f}%)")
+        # commercial rag
+        crag, creason = RAGRating.commercial_rag(proj, base_budget_year1, override_pwlb, invest_threshold_pct=override_investment_threshold)
+        color = {'RED':'#d62728','AMBER':'#ff7f0e','GREEN':'#2ca02c'}[crag]
+        st.markdown(f"<div style='padding:8px; border-left:4px solid {color}; background:#f7f7f7'>{crag}: {creason}</div>", unsafe_allow_html=True)
+
+# Opportunity cost simulator
+st.markdown("---")
+st.markdown("## Opportunity Cost Simulator")
+choices = {p.name: p for p in commercial_projects}
+choice = st.selectbox('Choose project to compare vs transformation vs do-nothing', ['Do Nothing'] + list(choices.keys()))
+if choice != 'Do Nothing':
+    sel = choices[choice]
+    # calculate 4-year cumulative net benefit
+    years = 4
+    # assume incomes start Year1 and persist
+    benefit = 0.0
+    for y in range(years):
+        # assume realisation at 80% default unless adjusted above
+        rkey = f"real_{commercial_projects.index(sel)}"
+        real_pct = st.session_state.get(rkey, 80)
+        net = sel.net_return(real_pct, override_pwlb)['net_return']
+        benefit += net
+    st.write(f"Estimated 4-year cumulative net benefit of {sel.name}: £{benefit:.2f}m")
+    # compare to using capital receipt to fund one-off costs
+    if sel.capital_receipt > 0:
+        st.write(f"Capital receipt available: £{sel.capital_receipt:.2f}m — can fund one-off revenue pressures")
+else:
+    st.write("No commercial project selected — model uses reserves/savings only")
 
 
 # ============================================================================

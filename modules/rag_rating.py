@@ -94,3 +94,36 @@ class RAGRating:
             'savings_as_pct_budget': savings_as_pct_budget,
             'funding_volatility_score': volatility_score,
         }
+
+    @staticmethod
+    def commercial_rag(project, base_budget, pwlb_rate_pct, invest_threshold_pct=5.0):
+        """
+        Returns RAG rating and reasoning for a commercial project.
+
+        Rules (default):
+        - RED: project.capital_cost > invest_threshold_pct% of base_budget OR spread < 0
+        - AMBER: spread < 2% above borrowing cost
+        - GREEN: spread >= 2% and capital exposure acceptable
+        """
+        reasons = []
+        exposure_pct = (project.capital_cost / base_budget) * 100 if base_budget else 0.0
+        sens = project.sensitivity_summary(pwlb_rate_pct)
+        # use pessimistic (60%) net return for safety
+        net60 = sens['60%']['net_return']
+        spread60 = sens['60%']['spread_pct']
+
+        if exposure_pct > invest_threshold_pct:
+            reasons.append(f"Capital exposure {exposure_pct:.1f}% > {invest_threshold_pct}%")
+        if spread60 < 0 or net60 < 0:
+            reasons.append(f"Pessimistic net return negative (net £{net60:.2f}m, spread {spread60:.2f}%)")
+        elif spread60 < 2.0:
+            reasons.append(f"Pessimistic spread {spread60:.2f}% < 2% margin")
+
+        if any('negative' in r or exposure_pct > invest_threshold_pct for r in reasons):
+            rating = 'RED'
+        elif any('margin' in r for r in reasons) or (0 < spread60 < 2.0):
+            rating = 'AMBER'
+        else:
+            rating = 'GREEN'
+
+        return rating, ' | '.join(reasons) if reasons else 'Meets commercial thresholds'
