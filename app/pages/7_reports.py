@@ -6,6 +6,7 @@ Generate professional, audit-ready MTFS reports with governance-grade formatting
 import streamlit as st
 import tempfile
 import os
+import pandas as pd
 from datetime import datetime
 from pathlib import Path
 
@@ -16,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'modules'))
 from calculation import project_mtfs
 from scenarios import get_saved_scenarios, load_scenario_params
 from report import generate_mtfs_statutory_report
+from export_bi import generate_excel_export, generate_power_bi_template
 from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
 
@@ -233,6 +235,155 @@ if generate_btn:
         import traceback
         st.code(traceback.format_exc(), language='python')
 
+# ===== EXCEL/BI EXPORT SECTION =====
+st.markdown("---")
+st.markdown("#### 📊 DATA EXPORT FOR ANALYSIS & DASHBOARDS")
+st.markdown("Export scenario data to Excel for detailed analysis, BI integration, or sharing with stakeholders.")
+
+export_col1, export_col2 = st.columns(2)
+
+with export_col1:
+    st.markdown("**Excel Export**")
+    st.markdown("""
+    Multi-worksheet Excel file with:
+    - Metadata & council info
+    - Executive summary (scenario comparison)
+    - Individual scenario time series
+    - Cross-scenario analysis
+    - Key financial metrics
+    
+    **Perfect for:**
+    - Sharing with finance teams for detailed review
+    - Data analysis in Excel or Python/R
+    - Archiving alongside the statutory PDF
+    """)
+    
+    excel_export_btn = st.button("📁 Export to Excel", key="excel_export_btn", use_container_width=True)
+    
+    if excel_export_btn:
+        try:
+            with st.spinner("📝 Generating Excel export..."):
+                temp_dir = tempfile.gettempdir()
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                excel_filename = f"MTFS_Scenarios_{timestamp}.xlsx"
+                output_path = os.path.join(temp_dir, excel_filename)
+                
+                # Generate Excel
+                excel_path = generate_excel_export(
+                    output_path=output_path,
+                    scenarios_data=scenarios_data,
+                    council_name=council_name,
+                    base_budget=base_budget
+                )
+                
+                # Log export to audit trail
+                audit_log = get_audit_log()
+                scenario_names_summary = ", ".join(list(scenarios_data.keys())[:3])
+                if len(scenarios_data) > 3:
+                    scenario_names_summary += f" +{len(scenarios_data)-3} more"
+                
+                audit_log.log_entry(
+                    action='excel_data_export',
+                    user=st.session_state.get('user', 'Anonymous'),
+                    key='export_type',
+                    old_value=None,
+                    new_value='Multi-Scenario Excel Export',
+                    notes=f"Exported {len(scenarios_data)} scenarios to Excel with {len(scenarios_data.get('Base Case', {}).get('projection', pd.DataFrame()))} rows per scenario"
+                )
+                
+                # Read and offer download
+                with open(excel_path, 'rb') as f:
+                    excel_bytes = f.read()
+                
+                st.success("✅ Excel export ready!")
+                st.download_button(
+                    label="📥 Download Excel File",
+                    data=excel_bytes,
+                    file_name=excel_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+                
+                file_size_kb = len(excel_bytes) / 1024
+                st.caption(f"📊 File: {excel_filename} | Size: {file_size_kb:.1f} KB")
+                
+                # Cleanup
+                try:
+                    os.remove(excel_path)
+                except:
+                    pass
+                
+        except Exception as e:
+            st.error(f"❌ Failed to generate Excel export: {e}")
+
+with export_col2:
+    st.markdown("**Power BI Template**")
+    st.markdown("""
+    JSON configuration template for Power BI:
+    - Sheet mapping & relationships
+    - Recommended visuals & charts
+    - DAX measure suggestions
+    - Deployment guide
+    
+    **Perfect for:**
+    - Setting up BI dashboards
+    - Creating executive dashboards
+    - Integrating with BI infrastructure
+    - Sharing interactive views with leadership
+    """)
+    
+    powerbi_export_btn = st.button("📊 Generate Power BI Template", key="powerbi_export_btn", use_container_width=True)
+    
+    if powerbi_export_btn:
+        try:
+            with st.spinner("📝 Generating Power BI template..."):
+                temp_dir = tempfile.gettempdir()
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                pbi_filename = f"MTFS_PowerBI_Template_{timestamp}.json"
+                output_path = os.path.join(temp_dir, pbi_filename)
+                
+                # Generate template
+                pbi_path = generate_power_bi_template(
+                    output_path=output_path,
+                    council_name=council_name
+                )
+                
+                # Log export to audit trail
+                audit_log = get_audit_log()
+                audit_log.log_entry(
+                    action='power_bi_template_export',
+                    user=st.session_state.get('user', 'Anonymous'),
+                    key='export_type',
+                    old_value=None,
+                    new_value='Power BI Configuration Template',
+                    notes=f"Generated Power BI template for {council_name} with {len(scenarios_data)} scenarios"
+                )
+                
+                # Read and offer download
+                with open(pbi_path, 'rb') as f:
+                    pbi_bytes = f.read()
+                
+                st.success("✅ Power BI template ready!")
+                st.download_button(
+                    label="📥 Download JSON Template",
+                    data=pbi_bytes,
+                    file_name=pbi_filename,
+                    mime="application/json",
+                    use_container_width=True
+                )
+                
+                file_size_kb = len(pbi_bytes) / 1024
+                st.caption(f"⚙️ File: {pbi_filename} | Size: {file_size_kb:.1f} KB")
+                
+                # Cleanup
+                try:
+                    os.remove(pbi_path)
+                except:
+                    pass
+                
+        except Exception as e:
+            st.error(f"❌ Failed to generate Power BI template: {e}")
+
 # ===== REPORT GUIDANCE =====
 st.markdown("---")
 st.markdown("#### 📖 Report Contents")
@@ -305,8 +456,54 @@ with st.expander("Using the Report for Governance", expanded=False):
     - Update strategy mid-year if significant variances emerge
     """)
 
+with st.expander("Excel Export & Power BI Integration", expanded=False):
+    st.markdown("""
+    **Excel Export Features:**
+    - **Metadata Sheet**: Export date, council name, baseline budget, scenarios included
+    - **Executive Summary**: High-level comparison of all scenarios (gap, reserves, RAG rating)
+    - **Time Series Comparison**: Year-by-year data across all scenarios for detailed analysis
+    - **Key Metrics**: Summary financial KPIs by scenario for dashboard creation
+    - **Individual Scenario Sheets**: Full projection data for each scenario (for detailed review)
+    
+    **Recommended Uses:**
+    - Share with finance and strategic teams for deeper analysis
+    - Create custom pivot tables and charts in Excel
+    - Import into Python/R for statistical analysis and scenario weighting
+    - Archive alongside statutory PDF for audit compliance
+    - Track assumption changes over time (compare exports from different dates)
+    
+    **Power BI Template:**
+    The JSON template includes:
+    - **Sheet Mapping**: References to all Excel sheets and their purpose
+    - **Data Relationships**: How to link scenarios to time series and metrics
+    - **Recommended Visuals**: Pre-designed charts (Gap Trend, Reserves Comparison, etc.)
+    - **DAX Measures**: Suggested calculations (Average Gap, Total Reserves, etc.)
+    - **Deployment Guide**: Step-by-step instructions for setting up the dashboard
+    
+    **Setting Up Power BI Dashboard:**
+    1. Export the Excel file from this page
+    2. Download the Power BI template JSON
+    3. Open Power BI Desktop
+    4. Create a new report and load the Excel file
+    5. Follow the template guide to create sheets, relationships, and visuals
+    6. Use the recommended DAX measures for calculations
+    7. Publish to Power BI Service for sharing with stakeholders
+    8. Set up scheduled refresh if Excel is stored in OneDrive or SharePoint
+    
+    **BI Best Practices:**
+    - Use slicers to filter by scenario, year, or department
+    - Color-code RAG ratings for quick visual scanning
+    - Create drill-down pages for detailed scenario analysis
+    - Add KPI cards showing key metrics (total gap, reserves, savings needed)
+    - Track forecast accuracy by comparing actuals against Base Case projection
+    - Use Power BI alerts to notify stakeholders when reserves fall below policy threshold
+    """)
+
 st.markdown("---")
 st.markdown("""
 **💡 Tip:** Save this report and compare it against in-year management accounts to track forecast accuracy.
 For auditor reviews, print and bind with a cover sheet noting the Council's consideration date.
+
+**Data Export Tip:** Export Excel and Power BI template together. Use Excel for detailed analysis and archiving; 
+use Power BI dashboard for governance meetings and executive updates.
 """)

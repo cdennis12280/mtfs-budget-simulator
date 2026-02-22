@@ -5,3 +5,4 @@ plotly>=5.16.0
 reportlab>=4.0
 kaleido>=0.2.1
 requests>=2.0
+openpyxl>=3.10.0
