@@ -412,18 +412,18 @@ commercial_projects = [projA, projB, projC]
 st.markdown("---")
 st.markdown("## Commercial Projects & S151 Controls")
 cols = st.columns(len(commercial_projects))
-for idx, proj in enumerate(commercial_projects):
+for idx, cproj in enumerate(commercial_projects):
     with cols[idx]:
-        st.subheader(proj.name)
-        real = st.slider(f"Income realisation % ({proj.name})", 50, 100, 80, 5, key=f"real_{idx}")
-        use_capital_receipt = st.checkbox(f"Use capital receipt for one-off revenue ({proj.name})", value=False, key=f"cap_{idx}")
-        sens = proj.sensitivity_summary(override_pwlb)
-        net = proj.net_return(real, override_pwlb)
-        st.write(f"Projected income @ {real}%: £{proj.projected_income(real):.2f}m")
-        st.write(f"Annual debt service (@{override_pwlb:.2f}%): £{proj.annual_debt_service(override_pwlb):.2f}m")
+        st.subheader(cproj.name)
+        real = st.slider(f"Income realisation % ({cproj.name})", 50, 100, 80, 5, key=f"real_{idx}")
+        use_capital_receipt = st.checkbox(f"Use capital receipt for one-off revenue ({cproj.name})", value=False, key=f"cap_{idx}")
+        sens = cproj.sensitivity_summary(override_pwlb)
+        net = cproj.net_return(real, override_pwlb)
+        st.write(f"Projected income @ {real}%: £{cproj.projected_income(real):.2f}m")
+        st.write(f"Annual debt service (@{override_pwlb:.2f}%): £{cproj.annual_debt_service(override_pwlb):.2f}m")
         st.write(f"Net return: £{net['net_return']:.2f}m (ROI {net['roi_pct']:.2f}%, spread {net['spread_pct']:.2f}%)")
         # commercial rag
-        crag, creason = RAGRating.commercial_rag(proj, base_budget_year1, override_pwlb, invest_threshold_pct=override_investment_threshold)
+        crag, creason = RAGRating.commercial_rag(cproj, base_budget_year1, override_pwlb, invest_threshold_pct=override_investment_threshold)
         color = {'RED':'#d62728','AMBER':'#ff7f0e','GREEN':'#2ca02c'}[crag]
         st.markdown(f"<div style='padding:8px; border-left:4px solid {color}; background:#f7f7f7'>{crag}: {creason}</div>", unsafe_allow_html=True)
 
