@@ -64,6 +64,25 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Custom non-collapsible header (professional site banner)
+st.markdown("""
+<div style='background:#0b3d91; padding:10px 16px; color: white; border-radius:6px;'>
+    <div style='display:flex; align-items:center; justify-content:space-between;'>
+        <div style='display:flex; align-items:center;'>
+            <img src='https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg' style='height:36px; margin-right:12px; filter: invert(1);'/>
+            <div>
+                <div style='font-weight:700; font-size:18px;'>MTFS Budget Gap Simulator</div>
+                <div style='font-size:12px; opacity:0.85;'>Decision-support for Section 151 Officers — v1.0</div>
+            </div>
+        </div>
+        <div style='font-size:13px; opacity:0.95;'>
+            <a href='/Commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
+            <a href='/' style='color:#ffd966;'>Dashboard</a>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 
 # ============================================================================
 # LOAD DATA
