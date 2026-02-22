@@ -74,7 +74,15 @@ for scenario_name in selected:
         continue
     
     params = s['params']
-    proj = calculator.project_mtfs(**params)
+    # Filter params to only include valid project_mtfs arguments
+    valid_params = {
+        'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+        'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+        'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+        'use_of_reserves_pct', 'protect_social_care'
+    }
+    filtered_params = {k: v for k, v in params.items() if k in valid_params}
+    proj = calculator.project_mtfs(**filtered_params)
     kpis = calculator.calculate_kpis(proj, base_budget_year1)
     final_reserves = proj.iloc[-1]['Closing_Reserves']
     rag, _ = RAGRating.get_rating(proj, base_budget_year1, (final_reserves / base_budget_year1) * 100)

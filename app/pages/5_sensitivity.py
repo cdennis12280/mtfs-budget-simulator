@@ -67,6 +67,14 @@ st.markdown("---")
 def run_sensitivity(base_params_tuple, perturbation_pct):
     """Run sensitivity analysis. Use tuple for hashing."""
     base_params_dict = dict(base_params_tuple)
+    # Filter to only valid project_mtfs parameters
+    valid_params = {
+        'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+        'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+        'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+        'use_of_reserves_pct', 'protect_social_care'
+    }
+    base_params_dict = {k: v for k, v in base_params_dict.items() if k in valid_params}
     calc = MTFSCalculator(base_data)
     sens = SensitivityAnalysis(calc, base_data, base_budget_year1)
     return sens.tornado_analysis(base_params_dict, perturbation_pct)
