@@ -1,0 +1,6 @@
+Year,Net_Revenue_Budget,Council_Tax_Income,Business_Rates_Income,Core_Grants,Fees_And_Charges,Service_Expenditure,Opening_Reserves,Pay_Cost_Base,Inflation_Base,Demand_Base_ASC,Demand_Base_CSC,Savings_Plan
+Year_1,250.0,120.0,60.0,55.0,15.0,238.0,25.0,145.0,85.0,28.0,32.0,2.5
+Year_2,255.0,122.0,59.5,54.0,15.2,245.0,24.0,148.0,86.0,29.0,33.0,3.0
+Year_3,260.0,124.0,59.0,53.0,15.5,252.0,22.5,151.0,88.0,30.0,34.0,3.5
+Year_4,265.0,126.0,58.5,52.0,15.8,259.0,21.0,154.0,90.0,31.0,35.0,4.0
+Year_5,270.0,128.0,58.0,51.0,16.0,266.0,19.0,157.0,92.0,32.0,36.0,4.5
