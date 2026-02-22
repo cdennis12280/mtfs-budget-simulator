@@ -429,7 +429,6 @@ commercial_projects = [projA, projB, projC]
 
 # Commercial tools moved to a dedicated page for cleaner dashboard
 st.markdown("---")
-st.info("Commercial tools (CSV uploader, portfolio analysis) are available on the Commercial page — open 'Commercial' from the Pages menu.")
 
 # Opportunity cost simulator
 st.markdown("---")
