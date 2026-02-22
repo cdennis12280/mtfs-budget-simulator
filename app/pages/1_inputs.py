@@ -23,6 +23,31 @@ if upload is not None:
     except Exception as e:
         st.error('Could not read CSV: ' + str(e))
 
+# Prefill from base_financials.csv when no upload and not already set
+if 'inputs_df' not in st.session_state and upload is None:
+    try:
+        data_path = Path(__file__).parent.parent / 'data' / 'base_financials.csv'
+        if data_path.exists():
+            base = pd.read_csv(data_path)
+            y1 = base[base['Year'] == 'Year_1'].iloc[0]
+            rows = [
+                {'name': 'Base Net Revenue', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Net_Revenue_Budget', 0.0)), 'department': 'Corporate', 'notes': 'prefill from base_financials.csv'},
+                {'name': 'Council Tax Income', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Council_Tax_Income', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Business Rates Income', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Business_Rates_Income', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Core Grants', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Core_Grants', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Fees And Charges', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Fees_And_Charges', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Service Expenditure', 'type': 'expenditure', 'year': 'Year_1', 'amount': float(y1.get('Service_Expenditure', 0.0)), 'department': 'All Services', 'notes': ''},
+                {'name': 'Opening Reserves', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Opening_Reserves', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Adult Social Care', 'type': 'expenditure', 'year': 'Year_1', 'amount': float(y1.get('Demand_Base_ASC', 0.0)), 'department': 'Adult Social Care', 'notes': ''},
+                {'name': 'Children Social Care', 'type': 'expenditure', 'year': 'Year_1', 'amount': float(y1.get('Demand_Base_CSC', 0.0)), 'department': 'Children Social Care', 'notes': ''},
+                {'name': 'Pay Cost Base', 'type': 'expenditure', 'year': 'Year_1', 'amount': float(y1.get('Pay_Cost_Base', 0.0)), 'department': 'Corporate', 'notes': ''},
+                {'name': 'Savings Plan', 'type': 'budget', 'year': 'Year_1', 'amount': float(y1.get('Savings_Plan', 0.0)), 'department': 'Corporate', 'notes': ''},
+            ]
+            st.session_state['inputs_df'] = pd.DataFrame(rows)
+    except Exception:
+        # if prefill fails, fall back to defaults
+        st.session_state['inputs_df'] = make_default_df()
+
 df = st.session_state.get('inputs_df', make_default_df())
 
 st.markdown('### Editable table')
