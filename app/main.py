@@ -23,6 +23,9 @@ from scenarios import Scenarios
 from rag_rating import RAGRating
 from report import generate_pdf_report
 from commercial import CommercialProject
+from help import get_help, HELP_TEXT
+from onboarding import show_first_visit_banner, show_key_terms, show_calculation_flow
+from sensitivity import SensitivityAnalysis
 
 
 # ============================================================================
@@ -76,8 +79,12 @@ st.markdown("""
             </div>
         </div>
         <div style='font-size:13px; opacity:0.95;'>
-            <a href='/Commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
-            <a href='/' style='color:#ffd966;'>Dashboard</a>
+            <a href='/' style='color:#ffd966; margin-right:12px;'>Dashboard</a>
+            <a href='/inputs' style='color:#ffd966; margin-right:12px;'>Inputs</a>
+            <a href='/commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
+            <a href='/scenarios-compare' style='color:#ffd966; margin-right:12px;'>Compare</a>
+            <a href='/sensitivity-analysis' style='color:#ffd966; margin-right:12px;'>Sensitivity</a>
+            <a href='/settings' style='color:#ffd966;'>Settings</a>
         </div>
     </div>
 </div>
@@ -97,6 +104,10 @@ def load_base_data():
 base_data = load_base_data()
 base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
 
+# Show first-visit banner if settings allow
+if st.session_state.get('show_onboarding', True):
+    show_first_visit_banner()
+
 
 # ============================================================================
 # SIDEBAR: USER INPUT CONTROLS
@@ -113,7 +124,7 @@ with st.sidebar:
         max_value=5.0,
         value=2.0,
         step=0.5,
-        help="Annual council tax increase assumption"
+        help=get_help('council_tax_increase')
     )
     
     business_rates_growth = st.slider(
@@ -122,7 +133,7 @@ with st.sidebar:
         max_value=3.0,
         value=-1.0,
         step=0.5,
-        help="Business rates income growth/decline"
+        help=get_help('business_rates_growth')
     )
     
     grant_change = st.slider(
@@ -131,7 +142,7 @@ with st.sidebar:
         max_value=2.0,
         value=-2.0,
         step=0.5,
-        help="Core grant funding change"
+        help=get_help('grant_change')
     )
     
     fees_charges_growth = st.slider(
@@ -140,7 +151,7 @@ with st.sidebar:
         max_value=6.0,
         value=3.0,
         step=0.5,
-        help="Growth in fees and charges income"
+        help=get_help('fees_charges_growth')
     )
     
     st.markdown("### Expenditure Assumptions")
@@ -151,7 +162,7 @@ with st.sidebar:
         max_value=8.0,
         value=3.5,
         step=0.5,
-        help="Annual pay award inflation"
+        help=get_help('pay_award')
     )
     
     general_inflation = st.slider(
@@ -160,7 +171,7 @@ with st.sidebar:
         max_value=6.0,
         value=2.0,
         step=0.5,
-        help="General inflation on non-pay costs"
+        help=get_help('general_inflation')
     )
     
     asc_demand_growth = st.slider(
@@ -169,7 +180,7 @@ with st.sidebar:
         max_value=10.0,
         value=4.0,
         step=0.5,
-        help="ASC demand and complexity growth"
+        help=get_help('asc_demand_growth')
     )
     
     csc_demand_growth = st.slider(
@@ -178,7 +189,7 @@ with st.sidebar:
         max_value=8.0,
         value=3.0,
         step=0.5,
-        help="CSC demand growth"
+        help=get_help('csc_demand_growth')
     )
     
     st.markdown("### Policy Decisions")
@@ -189,7 +200,7 @@ with st.sidebar:
         max_value=5.0,
         value=2.0,
         step=0.25,
-        help="Planned savings as % of budget"
+        help=get_help('savings_target')
     )
     
     use_of_reserves = st.slider(
@@ -198,13 +209,13 @@ with st.sidebar:
         max_value=100.0,
         value=50.0,
         step=10.0,
-        help="Proportion of gap funded from reserves vs. service cuts"
+        help=get_help('use_of_reserves')
     )
     
     protect_social_care = st.checkbox(
         "🛡️ Protect Social Care Services",
         value=False,
-        help="Suppress demand pressures from planning (cost must be from baseline)"
+        help=get_help('protect_social_care')
     )
     
     st.markdown("---")
@@ -263,9 +274,9 @@ projection_df = calculator.project_mtfs(
 # === Phase 2 Feature: Savings Strategy Builder ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Savings Strategy Builder")
-s_transformation = st.sidebar.slider("Transformation (% of savings)", 0.0, 100.0, 50.0, 5.0)
-s_income = st.sidebar.slider("Income Generation (% of savings)", 0.0, 100.0, 30.0, 5.0)
-s_demand = st.sidebar.slider("Demand Management (% of savings)", 0.0, 100.0, 20.0, 5.0)
+s_transformation = st.sidebar.slider("Transformation (% of savings)", 0.0, 100.0, 50.0, 5.0, help=get_help('savings_transformation'))
+s_income = st.sidebar.slider("Income Generation (% of savings)", 0.0, 100.0, 30.0, 5.0, help=get_help('savings_income'))
+s_demand = st.sidebar.slider("Demand Management (% of savings)", 0.0, 100.0, 20.0, 5.0, help=get_help('savings_demand'))
 # normalize if sum != 100
 s_total = s_transformation + s_income + s_demand
 if s_total == 0:
@@ -299,7 +310,7 @@ proj['Closing_Reserves_Strategy'] = opening_reserves - proj['Annual_Budget_Gap_S
 # === Council Tax Sensitivity Tool ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Council Tax Sensitivity")
-num_households = st.sidebar.number_input("Number of households (for per-household impact)", min_value=1, value=100000)
+num_households = st.sidebar.number_input("Number of households (for per-household impact)", min_value=1, value=100000, help=get_help('council_tax_per_household'))
 one_pct_impact = base_budget_year1 * 0.01
 per_household = one_pct_impact * 1e6 / num_households if base_budget_year1 > 0 else 0.0
 st.sidebar.write(f"1% council tax ≈ £{one_pct_impact:.2f}m total — £{per_household:.2f} per household")
@@ -329,9 +340,9 @@ dept_df['Projected_Expenditure'] = dept_df['Base_Expenditure'] * (1 + general_in
 # === Stochastic modelling ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Stochastic (Monte Carlo)")
-enable_stochastic = st.sidebar.checkbox("Enable stochastic modelling", value=False)
+enable_stochastic = st.sidebar.checkbox("Enable stochastic modelling", value=False, help=get_help('monte_carlo'))
 stochastic_runs = st.sidebar.number_input("Monte Carlo runs", min_value=100, max_value=5000, value=500, step=100)
-stochastic_std_pct = st.sidebar.slider("Std dev for assumptions (% of value)", 0.1, 10.0, 2.0)
+stochastic_std_pct = st.sidebar.slider("Std dev for assumptions (% of value)", 0.1, 10.0, 2.0, help=get_help('stochastic_std'))
 
 stochastic_results = None
 if enable_stochastic:
@@ -416,7 +427,7 @@ rag_rating, rag_reasoning = RAGRating.get_rating(
 # === S151 Persona: Global risk overrides ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### S151 Override (Global Risk Parameters)")
-override_pwlb = st.sidebar.number_input("Assume PWLB interest rate (%)", value=4.5, step=0.1)
+override_pwlb = st.sidebar.number_input("Assume PWLB interest rate (%)", value=4.5, step=0.1, help=get_help('pwlb_rate'))
 override_reserve_floor = st.sidebar.number_input("Reserve floor (£m)", value=10.0, step=1.0)
 override_investment_threshold = st.sidebar.slider("Max capital exposure (% of budget) before RED", 1.0, 20.0, 5.0, 1.0)
 
@@ -463,7 +474,21 @@ st.title("📊 MTFS Budget Gap Simulator")
 st.markdown("**Interactive financial planning tool for Section 151 / Corporate Leadership Teams**")
 st.markdown("---")
 
+# Help & Key Terms
+col_h1, col_h2, col_h3 = st.columns([2, 1, 1])
+with col_h1:
+    if st.button("📖 What is the MTFS?"):
+        show_key_terms()
+with col_h2:
+    if st.button("🔄 How it works"):
+        with st.expander("Calculation Flow", expanded=True):
+            show_calculation_flow()
+with col_h3:
+    if st.button("❓ Glossary"):
+        show_key_terms()
+
 st.markdown("## Strategic Headlines (4-Year MTFS)")
+st.markdown("*Hover over cards for explanations*")
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -474,7 +499,8 @@ with col1:
         "💰 Cumulative Gap",
         f"£{gap_amount:.1f}m",
         delta=f"{(gap_amount / base_budget_year1 * 100):.1f}% of budget",
-        delta_color="inverse"
+        delta_color="inverse",
+        help=get_help('cumulative_gap')
     )
 
 with col2:
@@ -487,7 +513,8 @@ with col2:
     st.metric(
         "📉 Reserves Status",
         reserves_text,
-        delta=f"Final: £{projection_df.iloc[-1]['Closing_Reserves']:.1f}m"
+        delta=f"Final: £{projection_df.iloc[-1]['Closing_Reserves']:.1f}m",
+        help=get_help('reserves_status')
     )
 
 with col3:
@@ -496,7 +523,8 @@ with col3:
         "🎯 Additional Savings Needed",
         f"{savings_req:.1f}%",
         delta="of annual budget",
-        delta_color="inverse"
+        delta_color="inverse",
+        help=get_help('savings_needed')
     )
 
 with col4:
