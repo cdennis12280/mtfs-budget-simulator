@@ -10,7 +10,8 @@ from pathlib import Path
 import json
 
 
-def generate_excel_export(output_path, scenarios_data, council_name, base_budget):
+def generate_excel_export(output_path, scenarios_data, council_name, base_budget,
+                          risk_register_df=None, stress_plan_df=None):
     """
     Generate a comprehensive Excel export with multiple worksheets for all scenarios.
     
@@ -133,6 +134,14 @@ def generate_excel_export(output_path, scenarios_data, council_name, base_budget
             for cell in row:
                 if cell.column > 1:  # Skip scenario name column
                     cell.number_format = '0.00'
+
+        # ===== RISK REGISTER SHEET =====
+        if risk_register_df is not None and not risk_register_df.empty:
+            risk_register_df.to_excel(writer, sheet_name='Risk Register', index=False)
+
+        # ===== RISK STRESS PLAN SHEET =====
+        if stress_plan_df is not None and not stress_plan_df.empty:
+            stress_plan_df.to_excel(writer, sheet_name='Risk Stress Plan', index=False)
     
     return os.path.abspath(output_path)
 
@@ -181,6 +190,16 @@ def generate_power_bi_template(output_path, council_name):
                         "name": "Key Metrics",
                         "purpose": "Summary financial metrics by scenario",
                         "primary_key": "Scenario"
+                    },
+                    {
+                        "name": "Risk Register",
+                        "purpose": "Corporate risk register aligned to MTFS drivers",
+                        "primary_key": "risk_id"
+                    },
+                    {
+                        "name": "Risk Stress Plan",
+                        "purpose": "Risk-weighted stress test outputs",
+                        "primary_key": "Risk ID"
                     }
                 ]
             }
@@ -234,6 +253,13 @@ def generate_power_bi_template(output_path, council_name):
                 "to_table": "Key Metrics",
                 "to_column": "Scenario",
                 "type": "one-to-one"
+            },
+            {
+                "from_table": "Risk Register",
+                "from_column": "risk_id",
+                "to_table": "Risk Stress Plan",
+                "to_column": "Risk ID",
+                "type": "one-to-many"
             }
         ],
         "dax_measures": [

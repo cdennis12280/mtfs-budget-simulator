@@ -14,11 +14,20 @@ sys.path.insert(0, str(Path(__file__).parents[2] / 'modules'))
 from commercial import CommercialProject
 from rag_rating import RAGRating
 from pwlb import get_latest_pwlb_rate
+from ui import apply_theme, page_header
 
 st.set_page_config(page_title="Commercial Tools", layout="wide")
 
-st.title("Commercial Projects — Portfolio Analysis")
-st.markdown("Upload a CSV of commercial projects or use the sample portfolio. Columns expected: `name,capital_cost,annual_income_target,life_years,operating_costs,capital_receipt`.")
+apply_theme()
+page_header(
+    "Commercial Projects - Portfolio Analysis",
+    "Upload a CSV or use the sample portfolio. Expected columns: name, capital_cost, annual_income_target, life_years, operating_costs, capital_receipt."
+)
+st.markdown("""
+<div class="app-callout">
+  Use this page to test PWLB assumptions and see commercial RAG ratings before committing capital.
+</div>
+""", unsafe_allow_html=True)
 
 col1, col2 = st.columns([2,1])
 with col2:

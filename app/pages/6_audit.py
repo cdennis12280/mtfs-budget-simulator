@@ -14,9 +14,15 @@ modules_path = Path(__file__).parent.parent.parent / 'modules'
 sys.path.insert(0, str(modules_path))
 
 from audit_log import get_audit_log
+from ui import apply_theme, page_header
 
-st.title("📋 Audit Log & Compliance")
-st.markdown("View and export audit trail of all actions, assumption changes, and exports for governance and external audit purposes.")
+apply_theme()
+page_header("Audit Log and Compliance", "View and export audit trail of all actions, assumption changes, and exports.")
+st.markdown("""
+<div class="app-callout">
+  Use filters to build an evidence pack for external audit or committee scrutiny.
+</div>
+""", unsafe_allow_html=True)
 
 audit_log = get_audit_log()
 
@@ -168,7 +174,7 @@ This audit log records all actions taken in the MTFS Budget Gap Simulator:
 - **Assumption Changes**: When budget, expenditure, or policy assumptions are modified
 - **Scenario Saves**: When scenarios are bookmarked for later comparison
 - **Exports**: When reports, CSVs, or PDFs are downloaded
-- **Settings Changes**: When theme, branding, or preferences are updated
+- **Settings Changes**: When branding or preferences are updated
 - **Model Runs**: When scenarios are calculated
 
 **Governance Benefits:**
@@ -178,8 +184,7 @@ This audit log records all actions taken in the MTFS Budget Gap Simulator:
 - 🛡️ Non-repudiation: actions are timestamped and attributed to users
 
 **Data Retention:**
-- Audit logs are saved locally in `.audit_log.jsonl`
-- Keep for minimum 6 years to meet audit requirements
+- Audit logs are session-only and not stored on the server
 - Export regularly as CSV for secure archival
 
 **Export Recommendations:**

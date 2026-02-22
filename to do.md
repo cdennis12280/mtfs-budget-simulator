@@ -45,6 +45,33 @@
 - Auto-recommend contingency planning based on sensitivity + risk scores
 - Elevates tool to strategic risk adviser
 
+## Hosted Access (SaaS Readiness) — NEW
+
+### 6. Authentication & Access Control
+- Password-protected login for Section 151 users
+- Role-based access (Admin, Finance Analyst, Read-only)
+- Session timeout + MFA option
+
+### 7. Multi-Tenant Data Storage
+- Separate council workspaces and data isolation
+- Encrypted storage for uploaded files and exports
+- Data retention policy and deletion workflows
+
+### 8. Billing & Subscription Management
+- Paid access tiers for councils
+- Stripe or equivalent billing integration
+- License management and usage limits
+
+### 9. Hosting & Deployment
+- Production hosting (e.g., Streamlit Cloud, Azure, AWS, or Docker)
+- HTTPS, custom domain, and monitoring
+- Backups and disaster recovery
+
+### 10. Security & Compliance
+- GDPR / UK data protection alignment
+- Audit logging retention and export
+- Pen-test readiness and vulnerability scanning
+
 ## Running the App
 
 ```bash

@@ -1,0 +1,10 @@
+risk_id,risk_title,driver_param,driver_label,direction,likelihood,impact,default_stress_pct,risk_owner,notes
+R1,Pay award pressure,pay_award_pct,Pay award %,increase,4,4,20,HR/Finance,National pay settlement above plan
+R2,Inflation spike,general_inflation_pct,General inflation %,increase,4,3,20,Finance,Contract inflation and energy pressures
+R3,Adult social care demand surge,asc_demand_growth_pct,ASC demand growth %,increase,5,5,15,ASC,Demand and placement cost escalation
+R4,Children's social care demand surge,csc_demand_growth_pct,CSC demand growth %,increase,4,5,15,CSC,Placement volatility and agency costs
+R5,Grant reduction,grant_change_pct,Grant change %,decrease,4,4,25,Finance,Funding settlement risk
+R6,Business rates volatility,business_rates_growth_pct,Business rates growth %,decrease,3,4,20,Finance,Appeals and valuation impacts
+R7,Council tax constraint,council_tax_increase_pct,Council tax increase %,decrease,3,3,20,Finance,Referendum limits or political constraints
+R8,Fees and charges underperformance,fees_charges_growth_pct,Fees and charges growth %,decrease,3,3,20,Service Leads,Income collection and demand elasticity
+R9,Savings under-delivery,annual_savings_target_pct,Annual savings target %,decrease,4,4,25,Transformation,Slippage in savings delivery

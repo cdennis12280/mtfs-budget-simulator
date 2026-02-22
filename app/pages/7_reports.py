@@ -14,18 +14,31 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'modules'))
 
-from calculation import project_mtfs
-from scenarios import get_saved_scenarios, load_scenario_params
+from scenarios import Scenarios
 from report import generate_mtfs_statutory_report
 from export_bi import generate_excel_export, generate_power_bi_template
 from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
+from calculations import MTFSCalculator
+from sensitivity import SensitivityAnalysis
+from risk_advisor import load_risk_register, merge_sensitivity, build_stress_table, SUGGESTED_ACTIONS
+from ui import apply_theme, page_header
 
 st.set_page_config(page_title="Reports - MTFS Simulator", layout="wide")
 
 # ===== HEADER =====
-st.markdown("### 📊 STATUTORY REPORT GENERATOR")
-st.markdown("Generate professional, audit-ready MTFS reports with multi-scenario comparisons and governance notes.")
+apply_theme()
+page_header("Statutory Report Generator", "Generate audit-ready MTFS reports and data packs.")
+st.markdown("""
+<div class="app-callout">
+  Include reserves policy and risk summary sections to strengthen governance evidence.
+</div>
+""", unsafe_allow_html=True)
+
+def get_base_data():
+    if 'base_data' in st.session_state:
+        return st.session_state['base_data'].copy()
+    return pd.read_csv(Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv')
 
 # ===== SAFETY CHECKS =====
 if 'projection_df' not in st.session_state or st.session_state.projection_df.empty:
@@ -55,12 +68,13 @@ with col2:
     st.markdown("")
     include_reserves_policy = st.checkbox("Include Reserves Policy Compliance Section", value=True)
     include_assumptions = st.checkbox("Include Detailed Assumptions", value=True)
+    include_risk_advisor = st.checkbox("Include Risk & Sensitivity Advisor Summary", value=True)
 
 # ===== SCENARIO SELECTION =====
 st.markdown("#### Scenarios to Include")
 
-# Get base case and saved scenarios
-saved_scenarios = get_saved_scenarios()
+# Get base case and saved scenarios (session only)
+saved_scenarios = {s['name']: s['params'] for s in st.session_state.get('saved_scenarios', [])}
 scenario_names = ['Base Case'] + list(saved_scenarios.keys())
 
 # Multi-select for scenarios
@@ -89,14 +103,18 @@ for scenario_name in selected_scenarios[1:]:
     if scenario_name in saved_scenarios:
         scenario_params = saved_scenarios[scenario_name]
         try:
-            # Recall the scenario assumptions
-            scenario_projection = project_mtfs(
-                initial_budget=base_budget,
-                **{k: v for k, v in scenario_params.items() if k not in ['name', 'timestamp']}
-            )
+            calc = MTFSCalculator(get_base_data())
+            valid_params = {
+                'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+                'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+                'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+                'use_of_reserves_pct', 'protect_social_care'
+            }
+            filtered_params = {k: v for k, v in scenario_params.items() if k in valid_params}
+            scenario_projection = calc.project_mtfs(**filtered_params)
             
             # Calculate KPIs for scenario
-            scenario_total_gap = max(0, scenario_projection['Budget_Gap'].sum())
+            scenario_total_gap = max(0, scenario_projection['Annual_Budget_Gap'].sum())
             scenario_closing_reserves = scenario_projection.iloc[-1]['Closing_Reserves']
             scenario_savings_pct = (scenario_total_gap / base_budget) * 100
             
@@ -148,6 +166,70 @@ for s_name, s_data in scenarios_data.items():
 
 st.dataframe(scenario_summary, use_container_width=True, hide_index=True)
 
+# ===== RISK ADVISOR PREVIEW =====
+st.markdown("#### Risk & Sensitivity Advisor Preview")
+st.markdown("Top risks ranked by weighted impact (risk score × gap impact).")
+
+risk_preview = None
+risk_register_export = None
+stress_plan_export = None
+try:
+    base_data = get_base_data()
+    base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
+
+    base_params = {
+        'council_tax_increase_pct': st.session_state.get('council_tax_increase_pct', 2.0),
+        'business_rates_growth_pct': st.session_state.get('business_rates_growth_pct', -1.0),
+        'grant_change_pct': st.session_state.get('grant_change_pct', -2.0),
+        'fees_charges_growth_pct': st.session_state.get('fees_charges_growth_pct', 3.0),
+        'pay_award_pct': st.session_state.get('pay_award_pct', 3.5),
+        'general_inflation_pct': st.session_state.get('general_inflation_pct', 2.0),
+        'asc_demand_growth_pct': st.session_state.get('asc_demand_growth_pct', 4.0),
+        'csc_demand_growth_pct': st.session_state.get('csc_demand_growth_pct', 3.0),
+        'annual_savings_target_pct': st.session_state.get('annual_savings_target_pct', 2.0),
+        'use_of_reserves_pct': st.session_state.get('use_of_reserves_pct', 50.0),
+        'protect_social_care': st.session_state.get('protect_social_care', False),
+    }
+    valid_params = {
+        'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+        'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+        'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+        'use_of_reserves_pct', 'protect_social_care'
+    }
+    base_params = {k: v for k, v in base_params.items() if k in valid_params}
+
+    calc = MTFSCalculator(base_data)
+    sens = SensitivityAnalysis(calc, base_data, base_budget_year1)
+    sensitivity_df = sens.tornado_analysis(base_params, perturbation_pct=10.0)
+
+    risk_path = Path(__file__).parent.parent.parent / 'data' / 'risk_register.csv'
+    risk_df = load_risk_register(risk_path)
+    risk_df = merge_sensitivity(risk_df, sensitivity_df)
+
+    stress_df = build_stress_table(calc, base_params, risk_df)
+    if not stress_df.empty:
+        risk_register_export = risk_df
+        stress_plan_export = stress_df
+        risk_preview = stress_df.head(3).copy()
+        risk_preview['Recommended Action'] = risk_preview['Driver Param'].map(
+            lambda p: SUGGESTED_ACTIONS.get(p, "Review mitigation and contingency options.")
+        )
+except Exception:
+    risk_preview = None
+
+if risk_preview is None or risk_preview.empty:
+    st.info("Risk advisor preview unavailable. Generate forecasts first or check risk register.")
+else:
+    st.dataframe(
+        risk_preview[[
+            'Risk ID', 'Risk', 'Driver', 'Stress %', 'Gap Delta (£m)', 'Weighted Impact', 'Recommended Action'
+        ]].style.format({
+            'Gap Delta (£m)': '{:.2f}',
+            'Weighted Impact': '{:.2f}',
+        }),
+        use_container_width=True
+    )
+
 # ===== GENERATE REPORT BUTTON =====
 st.markdown("#### Generate Report")
 
@@ -162,6 +244,58 @@ with col2:
 if generate_btn:
     try:
         with st.spinner("📝 Generating statutory report..."):
+            risk_summary = None
+            if include_risk_advisor:
+                base_data = get_base_data()
+                base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
+
+                base_params = {
+                    'council_tax_increase_pct': st.session_state.get('council_tax_increase_pct', 2.0),
+                    'business_rates_growth_pct': st.session_state.get('business_rates_growth_pct', -1.0),
+                    'grant_change_pct': st.session_state.get('grant_change_pct', -2.0),
+                    'fees_charges_growth_pct': st.session_state.get('fees_charges_growth_pct', 3.0),
+                    'pay_award_pct': st.session_state.get('pay_award_pct', 3.5),
+                    'general_inflation_pct': st.session_state.get('general_inflation_pct', 2.0),
+                    'asc_demand_growth_pct': st.session_state.get('asc_demand_growth_pct', 4.0),
+                    'csc_demand_growth_pct': st.session_state.get('csc_demand_growth_pct', 3.0),
+                    'annual_savings_target_pct': st.session_state.get('annual_savings_target_pct', 2.0),
+                    'use_of_reserves_pct': st.session_state.get('use_of_reserves_pct', 50.0),
+                    'protect_social_care': st.session_state.get('protect_social_care', False),
+                }
+                valid_params = {
+                    'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+                    'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+                    'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+                    'use_of_reserves_pct', 'protect_social_care'
+                }
+                base_params = {k: v for k, v in base_params.items() if k in valid_params}
+
+                calc = MTFSCalculator(base_data)
+                sens = SensitivityAnalysis(calc, base_data, base_budget_year1)
+                sensitivity_df = sens.tornado_analysis(base_params, perturbation_pct=10.0)
+
+                risk_path = Path(__file__).parent.parent.parent / 'data' / 'risk_register.csv'
+                risk_df = load_risk_register(risk_path)
+                risk_df = merge_sensitivity(risk_df, sensitivity_df)
+
+                stress_df = build_stress_table(calc, base_params, risk_df)
+                if not stress_df.empty:
+                    top_df = stress_df.head(3)
+                    risk_summary = []
+                    for _, row in top_df.iterrows():
+                        action_text = SUGGESTED_ACTIONS.get(
+                            row.get('Driver Param', ''),
+                            "Review mitigation and contingency options."
+                        )
+                        risk_summary.append({
+                            'risk_title': row.get('Risk', ''),
+                            'driver': row.get('Driver', ''),
+                            'stress_pct': row.get('Stress %', 0),
+                            'gap_delta': row.get('Gap Delta (£m)', 0),
+                            'weighted_impact': row.get('Weighted Impact', 0),
+                            'recommended_action': action_text,
+                        })
+
             # Create temp file for PDF
             temp_dir = tempfile.gettempdir()
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -188,7 +322,8 @@ if generate_btn:
                 report_date=str(report_date),
                 scenarios_data=scenarios_data,
                 base_budget=base_budget,
-                reserves_policy=reserves_policy
+                reserves_policy=reserves_policy,
+                risk_summary=risk_summary
             )
             
             # Log export to audit trail
@@ -273,7 +408,9 @@ with export_col1:
                     output_path=output_path,
                     scenarios_data=scenarios_data,
                     council_name=council_name,
-                    base_budget=base_budget
+                    base_budget=base_budget,
+                    risk_register_df=risk_register_export,
+                    stress_plan_df=stress_plan_export
                 )
                 
                 # Log export to audit trail

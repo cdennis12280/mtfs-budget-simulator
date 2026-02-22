@@ -48,8 +48,8 @@ def generate_pdf_report(output_path, title, kpis, note=None):
     return os.path.abspath(output_path)
 
 
-def generate_mtfs_statutory_report(output_path, council_name, report_date, scenarios_data, 
-                                   base_budget, reserves_policy=None):
+def generate_mtfs_statutory_report(output_path, council_name, report_date, scenarios_data,
+                                   base_budget, reserves_policy=None, risk_summary=None):
     """
     Generate a professional, multi-scenario MTFS statutory report.
     Audit-ready PDF with governance-grade formatting and compliance sections.
@@ -293,6 +293,61 @@ def generate_mtfs_statutory_report(output_path, council_name, report_date, scena
         
         story.append(PageBreak())
     
+    # ===== RISK & SENSITIVITY ADVISOR SUMMARY =====
+    if risk_summary:
+        story.append(Paragraph("RISK & SENSITIVITY ADVISOR SUMMARY", heading_style))
+        story.append(Spacer(1, 6*mm))
+
+        story.append(Paragraph(
+            "The following risks are prioritised based on corporate risk scoring and model "
+            "sensitivity. Stress tests reflect adverse movements in key assumptions.",
+            styles['Normal']
+        ))
+        story.append(Spacer(1, 4*mm))
+
+        risk_table_data = [[
+            'Risk', 'Driver', 'Stress %', 'Gap Delta (£m)', 'Weighted Impact'
+        ]]
+
+        for item in risk_summary:
+            risk_table_data.append([
+                item.get('risk_title', ''),
+                item.get('driver', ''),
+                f"{item.get('stress_pct', 0):.0f}%",
+                f"{item.get('gap_delta', 0):.2f}",
+                f"{item.get('weighted_impact', 0):.2f}",
+            ])
+
+        risk_table = Table(risk_table_data, colWidths=[160, 90, 55, 85, 90])
+        risk_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b3d91')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+        ]))
+        story.append(risk_table)
+        story.append(Spacer(1, 6*mm))
+
+        mitigation_lines = []
+        for item in risk_summary:
+            action = item.get('recommended_action', 'Review mitigation and contingency options.')
+            risk = item.get('risk_title', '')
+            driver = item.get('driver', '')
+            mitigation_lines.append(f\"• {risk} ({driver}): {action}\")
+
+        if mitigation_lines:
+            mitigation_text = \"<br/>\".join(mitigation_lines)
+            story.append(Paragraph(\"<b>Mitigation Notes:</b><br/>\" + mitigation_text, styles['Normal']))
+
+        story.append(PageBreak())
+
     # ===== METHODOLOGY & GOVERNANCE =====
     story.append(Paragraph("METHODOLOGY & GOVERNANCE NOTES", heading_style))
     story.append(Spacer(1, 6*mm))

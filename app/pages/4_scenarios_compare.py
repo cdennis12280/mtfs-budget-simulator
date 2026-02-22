@@ -17,27 +17,28 @@ sys.path.insert(0, str(modules_path))
 from calculations import MTFSCalculator
 from scenarios import Scenarios
 from rag_rating import RAGRating
+from ui import apply_theme, page_header
 
-st.title("📊 Scenario Comparison")
-st.markdown("Compare multiple scenarios side-by-side to inform decision-making.")
+apply_theme()
+page_header("Scenario Comparison", "Compare multiple scenarios side by side to inform decision-making.")
+st.markdown("""
+<div class="app-callout">
+  Select up to 4 scenarios to compare gaps and reserves trajectories at a glance.
+</div>
+""", unsafe_allow_html=True)
 
 # Load base data
-@st.cache_data
 def load_base_data():
+    if 'base_data' in st.session_state:
+        return st.session_state['base_data'].copy()
     data_path = Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv'
     return pd.read_csv(data_path)
 
 base_data = load_base_data()
 base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
 
-# Load saved scenarios
-bookmark_file = Path(__file__).parent.parent.parent / '.saved_scenarios.json'
-saved_scenarios = []
-if bookmark_file.exists():
-    try:
-        saved_scenarios = json.loads(bookmark_file.read_text())
-    except Exception:
-        saved_scenarios = []
+# Load saved scenarios (session only)
+saved_scenarios = st.session_state.get('saved_scenarios', [])
 
 # Add predefined scenarios
 predefined = Scenarios.get_all_scenarios()
@@ -67,6 +68,7 @@ if not selected:
 # Run selected scenarios
 calculator = MTFSCalculator(base_data)
 comparison_data = {}
+plotly_template = st.session_state.get('plotly_template', 'plotly_white')
 
 for scenario_name in selected:
     s = next((s for s in saved_scenarios if s['name'] == scenario_name), None)
@@ -138,7 +140,7 @@ fig_gap.update_layout(
     yaxis_title="Cumulative Gap (£m)",
     hovermode='x unified',
     height=450,
-    template='plotly_white',
+    template=plotly_template,
 )
 st.plotly_chart(fig_gap, use_container_width=True)
 
@@ -167,7 +169,7 @@ fig_res.update_layout(
     yaxis_title="Reserves (£m)",
     hovermode='x unified',
     height=450,
-    template='plotly_white',
+    template=plotly_template,
 )
 st.plotly_chart(fig_res, use_container_width=True)
 

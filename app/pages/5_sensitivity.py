@@ -5,6 +5,7 @@ One-way sensitivity and tornado charts for MTFS assumptions
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 from pathlib import Path
 import sys
 
@@ -14,13 +15,20 @@ sys.path.insert(0, str(modules_path))
 
 from calculations import MTFSCalculator
 from sensitivity import SensitivityAnalysis
+from ui import apply_theme, page_header
 
-st.title("🎯 Sensitivity Analysis")
-st.markdown("Test how robust the MTFS is to changes in key assumptions using tornado analysis.")
+apply_theme()
+page_header("Sensitivity Analysis", "Test how robust the MTFS is to changes in key assumptions.")
+st.markdown("""
+<div class="app-callout">
+  Focus on the top drivers first. Use two-way sensitivity to understand compounding risks.
+</div>
+""", unsafe_allow_html=True)
 
 # Load base data
-@st.cache_data
 def load_base_data():
+    if 'base_data' in st.session_state:
+        return st.session_state['base_data'].copy()
     data_path = Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv'
     return pd.read_csv(data_path)
 
@@ -125,7 +133,7 @@ if run_analysis or st.session_state.get('sensitivity_run', False):
             barmode='relative',
             height=500,
             hovermode='closest',
-            template='plotly_white',
+            template=st.session_state.get('plotly_template', 'plotly_white'),
         )
         
         st.plotly_chart(fig, use_container_width=True)
@@ -140,6 +148,68 @@ if run_analysis or st.session_state.get('sensitivity_run', False):
             }),
             use_container_width=True
         )
+
+        # Two-way sensitivity (top 2 drivers)
+        st.markdown("---")
+        st.markdown("## Two-Way Sensitivity (Top 2 Drivers)")
+
+        if len(sensitivity_df) >= 2:
+            top_two = sensitivity_df.head(2)['Assumption'].tolist()
+
+            label_to_param = {}
+            for p in base_params.keys():
+                label_to_param[p.replace('_pct', '').replace('_', ' ').title()] = p
+
+            param_y = label_to_param.get(top_two[0])
+            param_x = label_to_param.get(top_two[1])
+
+            if param_x and param_y:
+                base_val_x = base_params[param_x]
+                base_val_y = base_params[param_y]
+
+                def value_grid(base_val):
+                    delta = abs(base_val) * (perturbation / 100.0) if base_val != 0 else perturbation / 100.0
+                    return np.linspace(base_val - delta, base_val + delta, 5)
+
+                grid_x = value_grid(base_val_x)
+                grid_y = value_grid(base_val_y)
+
+                calc = MTFSCalculator(base_data)
+                z = []
+                for y_val in grid_y:
+                    row = []
+                    for x_val in grid_x:
+                        params = base_params.copy()
+                        params[param_x] = float(x_val)
+                        params[param_y] = float(y_val)
+                        proj = calc.project_mtfs(**params)
+                        row.append(proj['Annual_Budget_Gap'].sum())
+                    z.append(row)
+
+                heatmap_df = pd.DataFrame(z, index=[f"{v:.2f}" for v in grid_y],
+                                          columns=[f"{v:.2f}" for v in grid_x])
+
+                import plotly.graph_objects as go
+                fig2 = go.Figure(data=go.Heatmap(
+                    z=heatmap_df.values,
+                    x=heatmap_df.columns,
+                    y=heatmap_df.index,
+                    colorscale='RdYlGn_r',
+                    colorbar=dict(title='Cumulative Gap (£m)')
+                ))
+                fig2.update_layout(
+                    title=f"Two-Way Sensitivity: {top_two[0]} vs {top_two[1]}",
+                    xaxis_title=top_two[1],
+                    yaxis_title=top_two[0],
+                    height=450,
+                    template=st.session_state.get('plotly_template', 'plotly_white'),
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+                st.caption("Grid shows cumulative 4-year gap under paired assumption shifts.")
+            else:
+                st.info("Unable to map top drivers to parameters for two-way sensitivity.")
+        else:
+            st.info(\"Need at least two sensitivity drivers to compute two-way analysis.\")
         
         # Interpretation
         st.markdown("---")

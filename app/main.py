@@ -28,6 +28,9 @@ from onboarding import show_first_visit_banner, show_key_terms, show_calculation
 from sensitivity import SensitivityAnalysis
 from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
+from risk_advisor import load_risk_register, build_stress_table
+from snapshots import add_snapshot, load_snapshots
+from ui import apply_theme, page_header
 
 
 # ============================================================================
@@ -40,6 +43,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Apply UI theme from settings
+apply_theme()
 
 # Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""
@@ -70,8 +76,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Custom non-collapsible header (professional site banner)
+header_color = st.session_state.get('council_colour', '#0b3d91')
 st.markdown("""
-<div style='background:#0b3d91; padding:10px 16px; color: white; border-radius:6px;'>
+<div style='background:{header_color}; padding:10px 16px; color: white; border-radius:10px; border:1px solid rgba(255,255,255,0.2);'>
     <div style='display:flex; align-items:center; justify-content:space-between;'>
         <div style='display:flex; align-items:center;'>
             <img src='https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg' style='height:36px; margin-right:12px; filter: invert(1);'/>
@@ -82,25 +89,29 @@ st.markdown("""
         </div>
         <div style='font-size:13px; opacity:0.95;'>
             <a href='/' style='color:#ffd966; margin-right:12px;'>Dashboard</a>
+            <a href='/wizard' style='color:#ffd966; margin-right:12px;'>Wizard</a>
             <a href='/inputs' style='color:#ffd966; margin-right:12px;'>Inputs</a>
             <a href='/commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
             <a href='/scenarios-compare' style='color:#ffd966; margin-right:12px;'>Compare</a>
             <a href='/sensitivity-analysis' style='color:#ffd966; margin-right:12px;'>Sensitivity</a>
+            <a href='/risk_advisor' style='color:#ffd966; margin-right:12px;'>Risk Advisor</a>
             <a href='/reports' style='color:#ffd966; margin-right:12px;'>Reports</a>
             <a href='/audit' style='color:#ffd966; margin-right:12px;'>Audit</a>
+            <a href='/snapshots' style='color:#ffd966; margin-right:12px;'>Snapshots</a>
             <a href='/settings' style='color:#ffd966;'>Settings</a>
         </div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+""".format(header_color=header_color), unsafe_allow_html=True)
 
 
 # ============================================================================
 # LOAD DATA
 # ============================================================================
 
-@st.cache_data
 def load_base_data():
+    if 'base_data' in st.session_state:
+        return st.session_state['base_data'].copy()
     data_path = Path(__file__).parent.parent / 'data' / 'base_financials.csv'
     return pd.read_csv(data_path)
 
@@ -375,8 +386,57 @@ if enable_stochastic:
         samples.append(sample['Annual_Budget_Gap'].sum())
     stochastic_results = np.array(samples)
 
-# === Scenario Bookmarking ===
-bookmark_file = Path(__file__).parent.parent / '.saved_scenarios.json'
+# === Stress Test Presets ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Stress Test Presets")
+
+severity = st.sidebar.selectbox(
+    "Preset severity",
+    options=["Mild", "Moderate", "Severe"],
+    index=1
+)
+
+severity_scale = {
+    "Mild": 0.5,
+    "Moderate": 1.0,
+    "Severe": 1.5
+}[severity]
+
+stress_presets = {
+    "Funding Shock": {
+        'grant_change_pct': -3.0,
+        'business_rates_growth_pct': -2.0,
+        'fees_charges_growth_pct': -2.0,
+        'council_tax_increase_pct': -0.5,
+    },
+    "Demand Surge": {
+        'asc_demand_growth_pct': 2.0,
+        'csc_demand_growth_pct': 2.0,
+        'general_inflation_pct': 0.5,
+    },
+    "Pay Settlement": {
+        'pay_award_pct': 2.0,
+    },
+}
+
+for preset_name, deltas in stress_presets.items():
+    if st.sidebar.button(f"Apply {preset_name}"):
+        for key, delta in deltas.items():
+            old_val = st.session_state.get(key)
+            if old_val is None:
+                old_val = 0.0
+            st.session_state[key] = float(old_val) + float(delta) * severity_scale
+            audit.log_entry(
+                action='stress_preset_apply',
+                user='system',
+                key=key,
+                old_value=old_val,
+                new_value=st.session_state[key],
+                notes=f"Preset: {preset_name} ({severity})"
+            )
+        st.sidebar.success(f"{preset_name} applied.")
+
+# === Scenario Bookmarking (Session Only) ===
 if st.sidebar.button('Save Current Scenario'):
     scenario_name = f"Custom {pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}"
     scenario_data = {
@@ -395,14 +455,9 @@ if st.sidebar.button('Save Current Scenario'):
             'protect_social_care': protect_social_care,
         }
     }
-    saved = []
-    if bookmark_file.exists():
-        try:
-            saved = json.loads(bookmark_file.read_text())
-        except Exception:
-            saved = []
+    saved = st.session_state.get('saved_scenarios', [])
     saved.append(scenario_data)
-    bookmark_file.write_text(json.dumps(saved, indent=2))
+    st.session_state['saved_scenarios'] = saved
     # Log scenario save to audit
     audit.log_entry(
         action='scenario_save',
@@ -412,13 +467,7 @@ if st.sidebar.button('Save Current Scenario'):
     )
     st.sidebar.success('Scenario saved')
 
-if bookmark_file.exists():
-    try:
-        saved = json.loads(bookmark_file.read_text())
-    except Exception:
-        saved = []
-else:
-    saved = []
+saved = st.session_state.get('saved_scenarios', [])
 
 if saved:
     chosen = st.sidebar.selectbox('Load saved scenario', ['-- none --'] + [s['name'] for s in saved])
@@ -429,6 +478,15 @@ if saved:
         for k, v in params.items():
             st.session_state[k] = v
         st.sidebar.success(f"Loaded {chosen} — adjust sliders if needed")
+
+    # Optional export of saved scenarios (session only)
+    saved_json = json.dumps(saved, indent=2).encode('utf-8')
+    st.sidebar.download_button(
+        "Download saved scenarios (JSON)",
+        data=saved_json,
+        file_name="saved_scenarios.json",
+        mime="application/json"
+    )
 
 kpis = calculator.calculate_kpis(projection_df, base_budget_year1)
 sustainability = RAGRating.calculate_sustainability_metrics(
@@ -442,6 +500,64 @@ rag_rating, rag_reasoning = RAGRating.get_rating(
     base_budget_year1,
     final_reserves_pct
 )
+
+# === Forecast Snapshots (Rolling) ===
+snapshot_file = Path(__file__).parent.parent / '.forecast_snapshots.json'
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Forecast Snapshots")
+snapshot_name = st.sidebar.text_input("Snapshot name", value="Rolling Forecast")
+snapshot_notes = st.sidebar.text_area("Notes", value="", height=80)
+
+assumptions_payload = {
+    'council_tax_increase_pct': council_tax_increase,
+    'business_rates_growth_pct': business_rates_growth,
+    'grant_change_pct': grant_change,
+    'fees_charges_growth_pct': fees_charges_growth,
+    'pay_award_pct': pay_award,
+    'general_inflation_pct': general_inflation,
+    'asc_demand_growth_pct': asc_demand_growth,
+    'csc_demand_growth_pct': csc_demand_growth,
+    'annual_savings_target_pct': savings_target,
+    'use_of_reserves_pct': use_of_reserves,
+    'protect_social_care': protect_social_care,
+}
+
+if st.sidebar.button("Save Snapshot"):
+    entry = add_snapshot(
+        path=None,
+        name=snapshot_name,
+        assumptions=assumptions_payload,
+        kpis=kpis,
+        rag_rating=rag_rating,
+        notes=snapshot_notes
+    )
+    audit.log_entry(
+        action='forecast_snapshot_save',
+        user='system',
+        key=entry.get('snapshot_id', snapshot_name),
+        notes=f"Snapshot saved: {snapshot_name} v{entry.get('version', 1)}"
+    )
+    st.sidebar.success("Snapshot saved.")
+
+snapshots = load_snapshots()
+if snapshots:
+    options = [
+        f"{s.get('name', 'Snapshot')} v{s.get('version', 1)} ({s.get('timestamp', '')[:10]})"
+        for s in snapshots
+    ]
+    selected_idx = st.sidebar.selectbox("Load snapshot", ['-- none --'] + options)
+    if selected_idx != '-- none --':
+        sel = snapshots[options.index(selected_idx)]
+        if st.sidebar.button("Apply snapshot assumptions"):
+            for key, val in sel.get('assumptions', {}).items():
+                st.session_state[key] = val
+            audit.log_entry(
+                action='forecast_snapshot_apply',
+                user='system',
+                key=sel.get('snapshot_id', ''),
+                notes=f"Applied snapshot {sel.get('name', '')} v{sel.get('version', 1)}"
+            )
+            st.sidebar.success("Snapshot applied.")
 
 # === Reserves Policy Check ===
 # Load policy from session settings (defaults to standard S151 policy)
@@ -500,8 +616,19 @@ else:
 # SECTION 1: STRATEGIC HEADLINE KPIS
 # ============================================================================
 
-st.title("📊 MTFS Budget Gap Simulator")
-st.markdown("**Interactive financial planning tool for Section 151 / Corporate Leadership Teams**")
+page_header(
+    "MTFS Budget Gap Simulator",
+    "Interactive financial planning tool for Section 151 and Corporate Leadership Teams"
+)
+
+st.markdown("""
+<div class="app-callout">
+  <b>Quick Start</b><br/>
+  1. Set baseline data in Inputs<br/>
+  2. Adjust assumptions on this dashboard<br/>
+  3. Save a snapshot and export reports for governance
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 # Help & Key Terms
@@ -519,6 +646,31 @@ with col_h3:
 
 st.markdown("## Strategic Headlines (4-Year MTFS)")
 st.markdown("*Hover over cards for explanations*")
+plotly_template = st.session_state.get('plotly_template', 'plotly_white')
+
+# Risk advisor KPI prep
+risk_top = None
+try:
+    risk_path = Path(__file__).parent.parent / 'data' / 'risk_register.csv'
+    risk_df = load_risk_register(risk_path)
+    base_params = {
+        'council_tax_increase_pct': council_tax_increase,
+        'business_rates_growth_pct': business_rates_growth,
+        'grant_change_pct': grant_change,
+        'fees_charges_growth_pct': fees_charges_growth,
+        'pay_award_pct': pay_award,
+        'general_inflation_pct': general_inflation,
+        'asc_demand_growth_pct': asc_demand_growth,
+        'csc_demand_growth_pct': csc_demand_growth,
+        'annual_savings_target_pct': savings_target,
+        'use_of_reserves_pct': use_of_reserves,
+        'protect_social_care': protect_social_care,
+    }
+    stress_df = build_stress_table(calculator, base_params, risk_df)
+    if not stress_df.empty:
+        risk_top = stress_df.iloc[0]
+except Exception:
+    risk_top = None
 
 col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -584,6 +736,26 @@ with col5:
     </div>
     """, unsafe_allow_html=True)
 
+if risk_top is not None:
+    st.markdown("### Risk-Adjusted Highlights")
+    rcol1, rcol2 = st.columns(2)
+    with rcol1:
+        st.metric(
+            "⚠️ Top Risk Stress Impact",
+            f"£{risk_top['Gap Delta (£m)']:.1f}m",
+            delta=f"Stress {risk_top['Stress %']:.0f}%",
+            delta_color="inverse",
+            help="Largest risk-weighted stress impact on the cumulative gap."
+        )
+    with rcol2:
+        st.metric(
+            "🧭 Top Risk Driver",
+            f"{risk_top['Risk']}",
+            delta=f"{risk_top['Driver']}",
+            help="Highest weighted impact (risk score × gap impact)."
+        )
+    st.markdown("[Open Risk Advisor](/risk_advisor)")
+
 st.markdown("---")
 
 # ============================================================================
@@ -622,7 +794,7 @@ fig_gap.update_layout(
     yaxis_title="Gap (£m)",
     hovermode='x unified',
     height=420,
-    template='plotly_white',
+    template=plotly_template,
 )
 st.plotly_chart(fig_gap, use_container_width=True)
 
@@ -657,7 +829,7 @@ fig_reserves.update_layout(
     yaxis_title="Reserves (£m)",
     height=400,
     showlegend=False,
-    template='plotly_white',
+    template=plotly_template,
 )
 st.plotly_chart(fig_reserves, use_container_width=True)
 
@@ -710,7 +882,7 @@ fig_stack.update_layout(
     yaxis_title="Amount (£m)",
     barmode='group',
     height=400,
-    template='plotly_white',
+    template=plotly_template,
     hovermode='x unified',
 )
 st.plotly_chart(fig_stack, use_container_width=True)
@@ -805,7 +977,7 @@ fig_waterfall = go.Figure(go.Waterfall(
 fig_waterfall.update_layout(
     title="Year 1 Budget Gap Components",
     height=400,
-    template='plotly_white',
+    template=plotly_template,
     xaxis_tickangle=-45,
 )
 st.plotly_chart(fig_waterfall, use_container_width=True)

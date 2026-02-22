@@ -13,24 +13,20 @@ sys.path.insert(0, str(modules_path))
 
 from reserves_policy import ReservesPolicy
 from audit_log import get_audit_log
+from ui import apply_theme, page_header
 
-st.title("⚙️ Settings & Preferences")
-
-st.markdown("Customize your experience with the MTFS Budget Gap Simulator.")
+apply_theme()
+page_header("Settings and Preferences", "Customize your experience with the MTFS Budget Gap Simulator.")
+st.markdown("""
+<div class="app-callout">
+  Theme and branding changes apply immediately across all pages.
+</div>
+""", unsafe_allow_html=True)
 
 # Theme Selection
 st.markdown("## Theme")
-theme = st.radio(
-    "Select display theme:",
-    options=['Light', 'Dark', 'Print-Friendly'],
-    help="Light = default; Dark = easier on eyes; Print-Friendly = optimized for PDF export."
-)
-st.session_state['theme'] = theme
-
-if theme == 'Dark':
-    st.info("🌙 Dark theme enabled. Charts and text optimized for low-light viewing.")
-elif theme == 'Print-Friendly':
-    st.info("🖨️ Print-Friendly theme enabled. High contrast, no background colors.")
+st.info("🌙 Dark theme is enforced for all users.")
+st.session_state['theme'] = 'Dark'
 
 # Council Branding
 st.markdown("## Council Branding (Optional)")

@@ -90,7 +90,7 @@ class SensitivityAnalysis:
         df = df.sort_values('Range (£m)', ascending=False).reset_index(drop=True)
         return df
     
-    def plot_tornado(self, sensitivity_df: pd.DataFrame) -> go.Figure:
+    def plot_tornado(self, sensitivity_df: pd.DataFrame, template: str = 'plotly_white') -> go.Figure:
         """Create a tornado chart from sensitivity DataFrame."""
         x0 = sensitivity_df['Low Impact (£m)'].values
         x1 = sensitivity_df['High Impact (£m)'].values
@@ -126,7 +126,7 @@ class SensitivityAnalysis:
             barmode='relative',
             height=500,
             hovermode='closest',
-            template='plotly_white',
+            template=template,
         )
         
         return fig

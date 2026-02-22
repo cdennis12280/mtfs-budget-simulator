@@ -1,9 +1,24 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+import sys
 
-st.title("Inputs — Budget & Line Items")
-st.markdown("Upload or edit the authoritative inputs for the MTFS model. Use the table to bulk-edit budgets, expenditures and capital items, then click `Apply to model` to push values into session state.")
+modules_path = Path(__file__).parent.parent.parent / 'modules'
+sys.path.insert(0, str(modules_path))
+
+from ui import apply_theme, page_header
+
+apply_theme()
+page_header(
+    "Inputs - Budget and Line Items",
+    "Upload or edit the authoritative inputs for the MTFS model."
+)
+st.markdown("""
+<div class="app-callout">
+  <b>Session-only:</b> Use the table to bulk-edit inputs, then click
+  <code>Apply to model</code> to update calculations for this session. Export CSV to retain changes.
+</div>
+""", unsafe_allow_html=True)
 
 upload = st.file_uploader('Upload Inputs CSV (columns: name,type,year,amount,department,notes)', type=['csv'])
 
@@ -70,24 +85,119 @@ except Exception:
 
 if edited is not None:
     st.session_state['inputs_df'] = edited
+    # Auto-apply edits to in-session model
+    try:
+        data_path = Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv'
+        base_data = st.session_state.get('base_data')
+        if base_data is None:
+            base_data = pd.read_csv(data_path)
+
+        name_to_col = {
+            'base net revenue': 'Net_Revenue_Budget',
+            'net revenue budget': 'Net_Revenue_Budget',
+            'council tax income': 'Council_Tax_Income',
+            'business rates income': 'Business_Rates_Income',
+            'core grants': 'Core_Grants',
+            'fees and charges': 'Fees_And_Charges',
+            'fees & charges': 'Fees_And_Charges',
+            'service expenditure': 'Service_Expenditure',
+            'opening reserves': 'Opening_Reserves',
+            'pay cost base': 'Pay_Cost_Base',
+            'inflation base': 'Inflation_Base',
+            'adult social care': 'Demand_Base_ASC',
+            'children social care': 'Demand_Base_CSC',
+            'savings plan': 'Savings_Plan',
+        }
+
+        def normalize_year(value):
+            text = str(value).strip().lower().replace(" ", "").replace("-", "_")
+            if text in {"year1", "year_1", "y1", "1"}:
+                return "Year_1"
+            if text in {"year2", "year_2", "y2", "2"}:
+                return "Year_2"
+            if text in {"year3", "year_3", "y3", "3"}:
+                return "Year_3"
+            if text in {"year4", "year_4", "y4", "4"}:
+                return "Year_4"
+            if text in {"year5", "year_5", "y5", "5"}:
+                return "Year_5"
+            return str(value)
+
+        for _, row in edited.iterrows():
+            name = str(row.get('name', '')).strip().lower()
+            year = normalize_year(row.get('year', ''))
+            amount = row.get('amount', None)
+            if name in name_to_col and year in base_data['Year'].values and amount is not None:
+                col = name_to_col[name]
+                base_data.loc[base_data['Year'] == year, col] = float(amount)
+
+        st.session_state['base_data'] = base_data
+        y1 = base_data[base_data['Year'] == 'Year_1'].iloc[0]
+        st.session_state['base_budget'] = float(y1.get('Net_Revenue_Budget', 0.0))
+        st.session_state['opening_reserves'] = float(y1.get('Opening_Reserves', 0.0))
+    except Exception:
+        pass
 
 col1, col2 = st.columns([1,1])
 with col1:
     if st.button('Apply to model'):
         inputs = st.session_state.get('inputs_df', df)
-        # attempt to derive a sensible base budget (Year_1 budgets)
+        # Map inputs into in-session base_data (no disk writes)
         try:
-            # look for rows marked 'budget' in Year_1
-            mask = inputs['type'].astype(str).str.lower() == 'budget'
-            yr_mask = inputs['year'].astype(str) == 'Year_1'
-            candidate = inputs[mask & yr_mask]
-            if candidate.shape[0] > 0:
-                base_budget = float(candidate['amount'].sum())
-            else:
-                # fallback: sum all budget rows
-                base_budget = float(inputs[mask]['amount'].sum()) if inputs[mask].shape[0] > 0 else float(inputs['amount'].sum())
-            st.session_state['base_budget'] = base_budget
-            st.success(f'Applied inputs — set `base_budget` = {base_budget} (units as in CSV, typically £m)')
+            data_path = Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv'
+            base_data = st.session_state.get('base_data')
+            if base_data is None:
+                base_data = pd.read_csv(data_path)
+
+            name_to_col = {
+                'base net revenue': 'Net_Revenue_Budget',
+                'net revenue budget': 'Net_Revenue_Budget',
+                'council tax income': 'Council_Tax_Income',
+                'business rates income': 'Business_Rates_Income',
+                'core grants': 'Core_Grants',
+                'fees and charges': 'Fees_And_Charges',
+                'fees & charges': 'Fees_And_Charges',
+                'service expenditure': 'Service_Expenditure',
+                'opening reserves': 'Opening_Reserves',
+                'pay cost base': 'Pay_Cost_Base',
+                'inflation base': 'Inflation_Base',
+                'adult social care': 'Demand_Base_ASC',
+                'children social care': 'Demand_Base_CSC',
+                'savings plan': 'Savings_Plan',
+            }
+
+            def normalize_year(value):
+                text = str(value).strip().lower().replace(" ", "").replace("-", "_")
+                if text in {"year1", "year_1", "y1", "1"}:
+                    return "Year_1"
+                if text in {"year2", "year_2", "y2", "2"}:
+                    return "Year_2"
+                if text in {"year3", "year_3", "y3", "3"}:
+                    return "Year_3"
+                if text in {"year4", "year_4", "y4", "4"}:
+                    return "Year_4"
+                if text in {"year5", "year_5", "y5", "5"}:
+                    return "Year_5"
+                return str(value)
+
+            updated = 0
+            for _, row in inputs.iterrows():
+                name = str(row.get('name', '')).strip().lower()
+                year = normalize_year(row.get('year', ''))
+                amount = row.get('amount', None)
+                if name in name_to_col and year in base_data['Year'].values and amount is not None:
+                    col = name_to_col[name]
+                    base_data.loc[base_data['Year'] == year, col] = float(amount)
+                    updated += 1
+
+            st.session_state['base_data'] = base_data
+
+            # update key session values from Year_1
+            y1 = base_data[base_data['Year'] == 'Year_1'].iloc[0]
+            st.session_state['base_budget'] = float(y1.get('Net_Revenue_Budget', 0.0))
+            st.session_state['opening_reserves'] = float(y1.get('Opening_Reserves', 0.0))
+
+            st.success(f'Applied inputs to in-session model. Updated {updated} fields.')
         except Exception as e:
             st.error('Could not apply inputs to model: ' + str(e))
 
