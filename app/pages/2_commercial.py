@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parents[2] / 'modules'))
 from commercial import CommercialProject
 from rag_rating import RAGRating
+from pwlb import get_latest_pwlb_rate
 
 st.set_page_config(page_title="Commercial Tools", layout="wide")
 
@@ -22,6 +23,12 @@ st.markdown("Upload a CSV of commercial projects or use the sample portfolio. Co
 col1, col2 = st.columns([2,1])
 with col2:
     st.download_button('Download sample CSV', data='name,capital_cost,annual_income_target,life_years,operating_costs,capital_receipt\nProperty A,30,2,40,0.2,0\nDistrict Energy,20,1.6,30,0.1,0\nTransformation,10,0.5,10,0.05,2', file_name='sample_commercial.csv')
+
+auto_pwlb = get_latest_pwlb_rate()
+st.write(f"Auto PWLB rate: {auto_pwlb if auto_pwlb is not None else 'N/A'}% (refreshable)")
+if st.button('Refresh PWLB Rate'):
+    auto_pwlb = get_latest_pwlb_rate()
+    st.write(f"Refreshed PWLB rate: {auto_pwlb if auto_pwlb is not None else 'N/A'}%")
 
 upload = st.file_uploader('Upload commercial projects CSV', type=['csv'])
 
@@ -64,7 +71,8 @@ for idx, row in df.iterrows():
             operating_costs=float(row.get('operating_costs',0.0)),
             capital_receipt=float(row.get('capital_receipt',0.0)),
         )
-        pwlb = st.number_input(f'PWLB rate for {proj.name} (%)', value=4.5, key=f'pwlb_{idx}')
+        pwlb_default = auto_pwlb if auto_pwlb is not None else 4.5
+        pwlb = st.number_input(f'PWLB rate for {proj.name} (%)', value=float(pwlb_default), key=f'pwlb_{idx}')
         real = st.slider(f'Income realisation % ({proj.name})', 50, 100, 80, key=f'realproj_{idx}')
         summary = proj.net_return(real, pwlb)
         st.write(f"Projected income: £{summary['income']:.2f}m")
@@ -73,3 +81,27 @@ for idx, row in df.iterrows():
         st.write(f"Net return: £{summary['net_return']:.2f}m — ROI {summary['roi_pct']:.2f}% — Spread {summary['spread_pct']:.2f}%")
         rag, reason = RAGRating.commercial_rag(proj, base_budget=st.session_state.get('base_budget', 250.0), pwlb_rate_pct=pwlb)
         st.markdown(f"**RAG:** {rag} — {reason}")
+
+    # build export rows
+rows = []
+for _, r in df.iterrows():
+    p = CommercialProject(name=r['name'], capital_cost=float(r.get('capital_cost',0)), annual_income_target=float(r.get('annual_income_target',0)), life_years=int(r.get('life_years',25)), operating_costs=float(r.get('operating_costs',0)), capital_receipt=float(r.get('capital_receipt',0)))
+    # default analysis at 80% realisation using auto pwlb if present
+    pw = auto_pwlb if auto_pwlb is not None else 4.5
+    summ = p.net_return(80, pw)
+    rag, reason = RAGRating.commercial_rag(p, base_budget=st.session_state.get('base_budget',250.0), pwlb_rate_pct=pw)
+    rows.append({
+        'name': p.name,
+        'capital_cost': p.capital_cost,
+        'annual_income_80pct': summ['income'],
+        'debt_service': summ['debt_service'],
+        'net_return_80pct': summ['net_return'],
+        'roi_pct': summ['roi_pct'],
+        'spread_pct': summ['spread_pct'],
+        'RAG': rag,
+        'RAG_reason': reason,
+    })
+
+export_df = pd.DataFrame(rows)
+csv = export_df.to_csv(index=False).encode('utf-8')
+st.download_button('Export portfolio RAG CSV', data=csv, file_name='commercial_portfolio_rag.csv', mime='text/csv')
