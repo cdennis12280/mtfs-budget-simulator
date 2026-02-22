@@ -36,8 +36,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""
 <style>
+    /* Metric box styling */
     .metric-box {
         background-color: #f0f2f6;
         padding: 15px;
@@ -47,6 +49,18 @@ st.markdown("""
     .red-text { color: #d62728; font-weight: bold; }
     .amber-text { color: #ff7f0e; font-weight: bold; }
     .green-text { color: #2ca02c; font-weight: bold; }
+
+    /* Hide Streamlit header, main menu (hamburger) and footer */
+    #MainMenu {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    footer {visibility: hidden !important;}
+
+    /* Reduce default padding for denser layout */
+    .block-container {padding-top: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem;}
+    .stSidebar {padding-top: 0.5rem;}
+
+    /* Ensure download buttons and panels still visible */
+    .stDownloadButton, .stButton {z-index: 9999}
 </style>
 """, unsafe_allow_html=True)
 
