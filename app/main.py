@@ -442,6 +442,17 @@ rag_rating, rag_reasoning = RAGRating.get_rating(
     final_reserves_pct
 )
 
+# === Reserves Policy Check ===
+# Load policy from session settings (defaults to standard S151 policy)
+reserves_policy = ReservesPolicy(
+    min_pct=st.session_state.get('reserves_policy_min', 5.0),
+    target_pct=st.session_state.get('reserves_policy_target', 10.0),
+    max_pct=st.session_state.get('reserves_policy_max', 25.0),
+    policy_name="Council Reserves Policy"
+)
+policy_checker = ReservesPolicyChecker(reserves_policy)
+policy_check = policy_checker.check_forecast(projection_df, base_budget_year1)
+
 # === S151 Persona: Global risk overrides ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### S151 Override (Global Risk Parameters)")
@@ -508,7 +519,7 @@ with col_h3:
 st.markdown("## Strategic Headlines (4-Year MTFS)")
 st.markdown("*Hover over cards for explanations*")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     gap_amount = kpis['total_4_year_gap']
@@ -552,6 +563,23 @@ with col4:
         <p style="font-size: 14px; margin: 0;">Financial Sustainability</p>
         <p style="font-size: 24px; font-weight: bold; margin: 5px 0;">{rag_rating}</p>
         <p style="font-size: 11px; margin: 0; line-height: 1.3;">{rag_reasoning}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col5:
+    # Reserves Policy Compliance
+    policy_status = policy_check['by_year'][-1]['status'] if policy_check['by_year'] else 'UNKNOWN'
+    policy_color_map = {"RED": "#d62728", "AMBER": "#ff7f0e", "GREEN": "#2ca02c"}
+    policy_label = (
+        "🔴 Non-Compliant" if policy_status == "RED"
+        else "🟡 Below Target" if policy_status == "AMBER"
+        else "🟢 Policy Met"
+    )
+    st.markdown(f"""
+    <div style="background-color: {policy_color_map[policy_status]}; color: white; padding: 15px; border-radius: 5px; text-align: center;">
+        <p style="font-size: 14px; margin: 0;">Reserves Policy</p>
+        <p style="font-size: 18px; font-weight: bold; margin: 5px 0;">{policy_label}</p>
+        <p style="font-size: 11px; margin: 0; line-height: 1.3;">Min: {reserves_policy.min_pct}%  |  Target: {reserves_policy.target_pct}%</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -631,6 +659,30 @@ fig_reserves.update_layout(
     template='plotly_white',
 )
 st.plotly_chart(fig_reserves, use_container_width=True)
+
+# === Reserves Policy Compliance Panel ===
+st.markdown("## Reserves Policy Compliance")
+
+if policy_check['compliant']:
+    st.success(f"✅ {policy_checker.summary_text(policy_check)}")
+else:
+    st.warning(f"⚠️ {policy_checker.summary_text(policy_check)}")
+
+st.info(f"📋 {policy_checker.recommendation_text(policy_check, base_budget_year1)}")
+
+# Show year-by-year compliance table
+compliance_rows = []
+for year_check in policy_check['by_year']:
+    compliance_rows.append({
+        'Year': f"Year {year_check['year']}",
+        'Closing Reserves (£m)': f"{year_check['closing_reserves']:.1f}",
+        'Reserves (%)': f"{year_check['reserves_pct']:.1f}%",
+        'Min Threshold': f"£{year_check['min_threshold']:.1f}m ({reserves_policy.min_pct}%)",
+        'Status': year_check['status'],
+    })
+
+compliance_df = pd.DataFrame(compliance_rows)
+st.dataframe(compliance_df, use_container_width=True, hide_index=True)
 
 # ============================================================================
 # SECTION 4: FUNDING VS EXPENDITURE
