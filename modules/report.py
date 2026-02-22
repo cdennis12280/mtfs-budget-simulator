@@ -340,11 +340,11 @@ def generate_mtfs_statutory_report(output_path, council_name, report_date, scena
             action = item.get('recommended_action', 'Review mitigation and contingency options.')
             risk = item.get('risk_title', '')
             driver = item.get('driver', '')
-            mitigation_lines.append(f\"• {risk} ({driver}): {action}\")
+            mitigation_lines.append(f"• {risk} ({driver}): {action}")
 
         if mitigation_lines:
-            mitigation_text = \"<br/>\".join(mitigation_lines)
-            story.append(Paragraph(\"<b>Mitigation Notes:</b><br/>\" + mitigation_text, styles['Normal']))
+            mitigation_text = "<br/>".join(mitigation_lines)
+            story.append(Paragraph("<b>Mitigation Notes:</b><br/>" + mitigation_text, styles['Normal']))
 
         story.append(PageBreak())
 
