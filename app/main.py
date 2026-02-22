@@ -408,25 +408,9 @@ projC = CommercialProject(name='Service Transformation (capital led)', capital_c
 
 commercial_projects = [projA, projB, projC]
 
-# Commercialisation section (collapsed by default to keep page tidy)
+# Commercial tools moved to a dedicated page for cleaner dashboard
 st.markdown("---")
-st.info("Commercial projects and S151 controls are available — expand to view detailed modelling and RAG assessments.")
-with st.expander("Commercial Projects & S151 Controls (S151 Persona)", expanded=False):
-    cols = st.columns(len(commercial_projects))
-    for idx, cproj in enumerate(commercial_projects):
-        with cols[idx]:
-            st.subheader(cproj.name)
-            real = st.slider(f"Income realisation % ({cproj.name})", 50, 100, 80, 5, key=f"real_{idx}")
-            use_capital_receipt = st.checkbox(f"Use capital receipt for one-off revenue ({cproj.name})", value=False, key=f"cap_{idx}")
-            sens = cproj.sensitivity_summary(override_pwlb)
-            net = cproj.net_return(real, override_pwlb)
-            st.write(f"Projected income @ {real}%: £{cproj.projected_income(real):.2f}m")
-            st.write(f"Annual debt service (@{override_pwlb:.2f}%): £{cproj.annual_debt_service(override_pwlb):.2f}m")
-            st.write(f"Net return: £{net['net_return']:.2f}m (ROI {net['roi_pct']:.2f}%, spread {net['spread_pct']:.2f}%)")
-            # commercial rag
-            crag, creason = RAGRating.commercial_rag(cproj, base_budget_year1, override_pwlb, invest_threshold_pct=override_investment_threshold)
-            color = {'RED':'#d62728','AMBER':'#ff7f0e','GREEN':'#2ca02c'}[crag]
-            st.markdown(f"<div style='padding:8px; border-left:4px solid {color}; background:#f7f7f7'>{crag}: {creason}</div>", unsafe_allow_html=True)
+st.info("Commercial tools (CSV uploader, portfolio analysis) are available on the Commercial page — open 'Commercial' from the Pages menu.")
 
 # Opportunity cost simulator
 st.markdown("---")
