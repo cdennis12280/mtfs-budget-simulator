@@ -86,6 +86,7 @@ st.markdown("""
             <a href='/commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
             <a href='/scenarios-compare' style='color:#ffd966; margin-right:12px;'>Compare</a>
             <a href='/sensitivity-analysis' style='color:#ffd966; margin-right:12px;'>Sensitivity</a>
+            <a href='/reports' style='color:#ffd966; margin-right:12px;'>Reports</a>
             <a href='/audit' style='color:#ffd966; margin-right:12px;'>Audit</a>
             <a href='/settings' style='color:#ffd966;'>Settings</a>
         </div>
