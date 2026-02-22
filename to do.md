@@ -30,10 +30,14 @@
 - Integration: app/pages/7_reports.py dashboard with multi-scenario selector
 - Audit logging for all statutory report exports
 
-### 4. Excel / Power BI Data Export
+### 4. ✅ Excel / Power BI Data Export (COMPLETED)
 - Export scenario data + time series as `.xlsx` with multiple worksheets
 - Optional Power BI connector template
 - Integrates with council BI/reporting infrastructure
+- Integration: app/pages/7_reports.py with side-by-side Excel and Power BI export options
+- Audit logging for all data exports
+- Excel includes: Metadata, Executive Summary, Time Series, Key Metrics, Individual Scenarios
+- Power BI template includes: Sheet mapping, relationships, recommended visuals, DAX measures, deployment guide
 
 ### 5. Risk & Sensitivity-Weighted Scenario Advisor
 - Link sensitivity drivers to corporate risk register
