@@ -10,7 +10,7 @@
 
 ## Next 5 Features (S151 Governance & Compliance)
 
-### 1. ⭐⭐⭐ Audit Trail & Change Log (IN PROGRESS)
+### 1. ✅ Audit Trail & Change Log (COMPLETED)
 - Track timestamp, user, change type, old/new values for all assumption changes + scenario saves + exports
 - Display audit log panel on dedicated admin/audit page
 - Export audit report as CSV
