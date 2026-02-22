@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+import json
+import os
 from pathlib import Path
 import sys
 
@@ -19,6 +21,7 @@ sys.path.insert(0, str(modules_path))
 from calculations import MTFSCalculator
 from scenarios import Scenarios
 from rag_rating import RAGRating
+from report import generate_pdf_report
 
 
 # ============================================================================
@@ -191,6 +194,17 @@ with st.sidebar:
         st.session_state.update({k: v for k, v in scenario.items()})
         st.rerun()
 
+    st.markdown("---")
+    st.markdown("### Savings Register")
+    savings_register_file = st.file_uploader("Upload Savings Register CSV (optional)", type=['csv'])
+    if savings_register_file is not None:
+        try:
+            savings_df = pd.read_csv(savings_register_file)
+            st.session_state['savings_register_total'] = savings_df['Amount'].sum()
+            st.write(f"Loaded savings register — total: £{st.session_state['savings_register_total']:.2f}m")
+        except Exception:
+            st.warning("Could not read savings register CSV — expected column 'Amount'")
+
 
 # ============================================================================
 # MAIN CONTENT: RUN CALCULATIONS
@@ -211,6 +225,146 @@ projection_df = calculator.project_mtfs(
     use_of_reserves_pct=use_of_reserves,
     protect_social_care=protect_social_care,
 )
+
+# === Phase 2 Feature: Savings Strategy Builder ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Savings Strategy Builder")
+s_transformation = st.sidebar.slider("Transformation (% of savings)", 0.0, 100.0, 50.0, 5.0)
+s_income = st.sidebar.slider("Income Generation (% of savings)", 0.0, 100.0, 30.0, 5.0)
+s_demand = st.sidebar.slider("Demand Management (% of savings)", 0.0, 100.0, 20.0, 5.0)
+# normalize if sum != 100
+s_total = s_transformation + s_income + s_demand
+if s_total == 0:
+    s_total = 1.0
+s_transformation_pct = s_transformation / s_total
+s_income_pct = s_income / s_total
+s_demand_pct = s_demand / s_total
+
+# apply savings register if uploaded
+savings_register_total = st.session_state.get('savings_register_total', 0.0)
+
+# Apply strategy by adjusting funding/expenditure/demand across projection
+proj = projection_df.copy()
+proj['Adjusted_Total_Funding'] = proj['Total_Funding']
+proj['Adjusted_Projected_Expenditure'] = proj['Projected_Expenditure']
+
+for i, row in proj.iterrows():
+    total_sav = row['Annual_Savings'] + (savings_register_total / len(proj) if savings_register_total else 0.0)
+    inc = total_sav * s_income_pct
+    trans = total_sav * s_transformation_pct
+    dem = total_sav * s_demand_pct
+    proj.at[i, 'Adjusted_Total_Funding'] = row['Total_Funding'] + inc
+    proj.at[i, 'Adjusted_Projected_Expenditure'] = row['Projected_Expenditure'] - trans - dem
+
+# recompute gaps after savings strategy
+proj['Annual_Budget_Gap_Strategy'] = proj['Adjusted_Projected_Expenditure'] - proj['Adjusted_Total_Funding']
+proj['Cumulative_Gap_Strategy'] = proj['Annual_Budget_Gap_Strategy'].cumsum()
+opening_reserves = proj.iloc[0]['Opening_Reserves']
+proj['Closing_Reserves_Strategy'] = opening_reserves - proj['Annual_Budget_Gap_Strategy'].cumsum()
+
+# === Council Tax Sensitivity Tool ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Council Tax Sensitivity")
+num_households = st.sidebar.number_input("Number of households (for per-household impact)", min_value=1, value=100000)
+one_pct_impact = base_budget_year1 * 0.01
+per_household = one_pct_impact * 1e6 / num_households if base_budget_year1 > 0 else 0.0
+st.sidebar.write(f"1% council tax ≈ £{one_pct_impact:.2f}m total — £{per_household:.2f} per household")
+
+# === Departmental Drill-Down ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Departmental Drill-Down")
+dept_file = st.sidebar.file_uploader("Upload departmental budget CSV (optional)", type=['csv'])
+if dept_file is not None:
+    try:
+        dept_df = pd.read_csv(dept_file)
+        st.session_state['dept_df'] = dept_df
+    except Exception:
+        st.warning("Could not read departmental CSV — expected columns 'Department' and 'Base_Expenditure'")
+if 'dept_df' not in st.session_state:
+    # default department split
+    dept_df = pd.DataFrame({
+        'Department': ['Adult Social Care', 'Children Social Care', 'Education', 'Housing', 'Other'],
+        'Base_Expenditure': [60.0, 40.0, 30.0, 20.0, 48.0]
+    })
+else:
+    dept_df = st.session_state['dept_df']
+
+# Cascade inflation/pay to departments proportionally
+dept_df['Projected_Expenditure'] = dept_df['Base_Expenditure'] * (1 + general_inflation / 100 + pay_award / 100)
+
+# === Stochastic modelling ===
+st.sidebar.markdown("---")
+st.sidebar.markdown("### Stochastic (Monte Carlo)")
+enable_stochastic = st.sidebar.checkbox("Enable stochastic modelling", value=False)
+stochastic_runs = st.sidebar.number_input("Monte Carlo runs", min_value=100, max_value=5000, value=500, step=100)
+stochastic_std_pct = st.sidebar.slider("Std dev for assumptions (% of value)", 0.1, 10.0, 2.0)
+
+stochastic_results = None
+if enable_stochastic:
+    samples = []
+    for _ in range(int(stochastic_runs)):
+        sample = calculator.project_mtfs(
+            council_tax_increase_pct=max(0.0, np.random.normal(council_tax_increase, council_tax_increase * stochastic_std_pct / 100)),
+            business_rates_growth_pct=np.random.normal(business_rates_growth, abs(business_rates_growth) * stochastic_std_pct / 100),
+            grant_change_pct=np.random.normal(grant_change, abs(grant_change) * stochastic_std_pct / 100),
+            fees_charges_growth_pct=np.random.normal(fees_charges_growth, fees_charges_growth * stochastic_std_pct / 100),
+            pay_award_pct=np.random.normal(pay_award, pay_award * stochastic_std_pct / 100),
+            general_inflation_pct=np.random.normal(general_inflation, general_inflation * stochastic_std_pct / 100),
+            asc_demand_growth_pct=np.random.normal(asc_demand_growth, asc_demand_growth * stochastic_std_pct / 100),
+            csc_demand_growth_pct=np.random.normal(csc_demand_growth, csc_demand_growth * stochastic_std_pct / 100),
+            annual_savings_target_pct=max(0.0, np.random.normal(savings_target, savings_target * stochastic_std_pct / 100)),
+            use_of_reserves_pct=use_of_reserves,
+            protect_social_care=protect_social_care,
+        )
+        samples.append(sample['Annual_Budget_Gap'].sum())
+    stochastic_results = np.array(samples)
+
+# === Scenario Bookmarking ===
+bookmark_file = Path(__file__).parent.parent / '.saved_scenarios.json'
+if st.sidebar.button('Save Current Scenario'):
+    scenario_data = {
+        'name': f"Custom {pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}",
+        'params': {
+            'council_tax_increase_pct': council_tax_increase,
+            'business_rates_growth_pct': business_rates_growth,
+            'grant_change_pct': grant_change,
+            'fees_charges_growth_pct': fees_charges_growth,
+            'pay_award_pct': pay_award,
+            'general_inflation_pct': general_inflation,
+            'asc_demand_growth_pct': asc_demand_growth,
+            'csc_demand_growth_pct': csc_demand_growth,
+            'annual_savings_target_pct': savings_target,
+            'use_of_reserves_pct': use_of_reserves,
+            'protect_social_care': protect_social_care,
+        }
+    }
+    saved = []
+    if bookmark_file.exists():
+        try:
+            saved = json.loads(bookmark_file.read_text())
+        except Exception:
+            saved = []
+    saved.append(scenario_data)
+    bookmark_file.write_text(json.dumps(saved, indent=2))
+    st.sidebar.success('Scenario saved')
+
+if bookmark_file.exists():
+    try:
+        saved = json.loads(bookmark_file.read_text())
+    except Exception:
+        saved = []
+else:
+    saved = []
+
+if saved:
+    chosen = st.sidebar.selectbox('Load saved scenario', ['-- none --'] + [s['name'] for s in saved])
+    if chosen and chosen != '-- none --':
+        sel = next(s for s in saved if s['name'] == chosen)
+        params = sel['params']
+        # update UI variables in session (non-invasive)
+        for k, v in params.items():
+            st.session_state[k] = v
+        st.sidebar.success(f"Loaded {chosen} — adjust sliders if needed")
 
 kpis = calculator.calculate_kpis(projection_df, base_budget_year1)
 sustainability = RAGRating.calculate_sustainability_metrics(
@@ -288,30 +442,36 @@ st.markdown("---")
 
 st.markdown("## Budget Gap by Year")
 
+# Show baseline and strategy-adjusted gaps
 fig_gap = go.Figure()
 fig_gap.add_trace(go.Scatter(
     x=projection_df['Year_Number'],
     y=projection_df['Annual_Budget_Gap'],
     mode='lines+markers',
-    name='Annual Gap',
-    line=dict(color='#d62728', width=3),
-    marker=dict(size=8),
+    name='Annual Gap (Base)',
+    line=dict(color='#d62728', width=2),
 ))
 fig_gap.add_trace(go.Scatter(
-    x=projection_df['Year_Number'],
-    y=projection_df['Cumulative_Gap'],
+    x=proj['Year_Number'],
+    y=proj['Annual_Budget_Gap_Strategy'],
     mode='lines+markers',
-    name='Cumulative Gap',
+    name='Annual Gap (With Savings Strategy)',
+    line=dict(color='#2ca02c', width=2),
+))
+fig_gap.add_trace(go.Scatter(
+    x=proj['Year_Number'],
+    y=proj['Cumulative_Gap_Strategy'],
+    mode='lines',
+    name='Cumulative Gap (Strategy)',
     line=dict(color='#ff7f0e', width=2, dash='dash'),
-    marker=dict(size=6),
 ))
 fig_gap.add_hline(y=0, line_dash="dash", line_color="green", annotation_text="Balanced")
 fig_gap.update_layout(
-    title="Annual and Cumulative Budget Gap",
+    title="Annual and Cumulative Budget Gap (Base vs Strategy)",
     xaxis_title="Year",
     yaxis_title="Gap (£m)",
     hovermode='x unified',
-    height=400,
+    height=420,
     template='plotly_white',
 )
 st.plotly_chart(fig_gap, use_container_width=True)
@@ -333,6 +493,14 @@ fig_reserves.add_trace(go.Bar(
 min_threshold = base_budget_year1 * (RAGRating.MIN_RESERVES_PCT / 100)
 fig_reserves.add_hline(y=min_threshold, line_dash="dash", line_color="red", 
                        annotation_text=f"Minimum Threshold (£{min_threshold:.1f}m)")
+# strategy reserves
+fig_reserves.add_trace(go.Scatter(
+    x=proj['Year_Number'],
+    y=proj['Closing_Reserves_Strategy'],
+    mode='lines+markers',
+    name='Closing Reserves (Strategy)',
+    line=dict(color='#2ca02c', width=2, dash='dash')
+))
 fig_reserves.update_layout(
     title="Reserves Position (Closing Balance)",
     xaxis_title="Year",
@@ -523,6 +691,43 @@ with col3:
         f"{sustainability['funding_volatility_score']:.2f}",
         delta="Lower = more stable",
     )
+
+# ============================================================================
+# SECTION X: STOCHASTIC & DEPARTMENTAL OUTPUTS + PDF EXPORT
+# ============================================================================
+
+if stochastic_results is not None:
+    st.markdown("## Stochastic Monte Carlo Results")
+    fig_hist = px.histogram(stochastic_results, nbins=40, title='Distribution of 4-year cumulative gap (Monte Carlo)')
+    st.plotly_chart(fig_hist, use_container_width=True)
+    st.write(f"Mean gap: £{stochastic_results.mean():.2f}m — 5th/50th/95th percentiles: £{np.percentile(stochastic_results,5):.2f}m / £{np.percentile(stochastic_results,50):.2f}m / £{np.percentile(stochastic_results,95):.2f}m")
+
+st.markdown("## Departmental Drill-Down")
+st.dataframe(dept_df.style.format({'Base_Expenditure': '{:.1f}', 'Projected_Expenditure': '{:.1f}'}), use_container_width=True)
+fig_dept = go.Figure()
+fig_dept.add_trace(go.Bar(x=dept_df['Department'], y=dept_df['Projected_Expenditure'], marker_color='#636efa'))
+fig_dept.update_layout(title='Projected Expenditure by Department', xaxis_title='Department', yaxis_title='Expenditure (£m)')
+st.plotly_chart(fig_dept, use_container_width=True)
+
+# PDF report generation
+st.markdown("## Export Report")
+if st.button('Generate PDF Report'):
+    kpis_for_report = {
+        'Cumulative 4-Year Gap (£m)': f"{kpis['total_4_year_gap']:.1f}",
+        'Year Reserves Exhausted': kpis['year_reserves_exhausted'] or 'N/A',
+        'Savings Required (%)': f"{kpis['savings_required_pct']:.2f}",
+        'Council Tax Equivalent (£)': f"{kpis['council_tax_equivalent_impact']:.2f}",
+        'RAG Rating': rag_rating,
+    }
+    out_path = Path.cwd() / 'mtfs_report.pdf'
+    try:
+        pdf_path = generate_pdf_report(str(out_path), 'MTFS Budget Gap Simulator — Report', kpis_for_report, note=f"Scenario: {st.session_state.get('scenario','Custom')}")
+        with open(pdf_path, 'rb') as fh:
+            data = fh.read()
+        st.download_button('Download PDF', data, file_name='mtfs_report.pdf', mime='application/pdf')
+    except Exception as e:
+        st.error(f"Failed to generate PDF: {e}")
+
 
 # ============================================================================
 # SECTION 9: GOVERNANCE & AUDITABILITY
