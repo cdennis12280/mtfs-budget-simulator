@@ -16,7 +16,7 @@
 - Export audit report as CSV
 - Non-negotiable for external auditor compliance and governance sign-off
 
-### 2. Reserves Policy Alignment Tool
+### 2. ✅ Reserves Policy Alignment Tool (COMPLETED)
 - Define council's reserves policy (min %, target %)
 - Auto-flag when model forecast breaches policy
 - Visual KPI cards showing policy vs. forecast
