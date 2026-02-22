@@ -26,6 +26,7 @@ from commercial import CommercialProject
 from help import get_help, HELP_TEXT
 from onboarding import show_first_visit_banner, show_key_terms, show_calculation_flow
 from sensitivity import SensitivityAnalysis
+from audit_log import get_audit_log
 
 
 # ============================================================================
@@ -84,6 +85,7 @@ st.markdown("""
             <a href='/commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
             <a href='/scenarios-compare' style='color:#ffd966; margin-right:12px;'>Compare</a>
             <a href='/sensitivity-analysis' style='color:#ffd966; margin-right:12px;'>Sensitivity</a>
+            <a href='/audit' style='color:#ffd966; margin-right:12px;'>Audit</a>
             <a href='/settings' style='color:#ffd966;'>Settings</a>
         </div>
     </div>
@@ -103,6 +105,13 @@ def load_base_data():
 
 base_data = load_base_data()
 base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
+
+# Initialize audit log
+audit = get_audit_log()
+# Log app startup/session
+if 'session_id' not in st.session_state:
+    audit.log_entry(action='session_start', user='system', notes='New session started')
+    st.session_state['session_id'] = pd.Timestamp.now().isoformat()
 
 # Show first-visit banner if settings allow
 if st.session_state.get('show_onboarding', True):
@@ -367,8 +376,9 @@ if enable_stochastic:
 # === Scenario Bookmarking ===
 bookmark_file = Path(__file__).parent.parent / '.saved_scenarios.json'
 if st.sidebar.button('Save Current Scenario'):
+    scenario_name = f"Custom {pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}"
     scenario_data = {
-        'name': f"Custom {pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}",
+        'name': scenario_name,
         'params': {
             'council_tax_increase_pct': council_tax_increase,
             'business_rates_growth_pct': business_rates_growth,
@@ -391,6 +401,13 @@ if st.sidebar.button('Save Current Scenario'):
             saved = []
     saved.append(scenario_data)
     bookmark_file.write_text(json.dumps(saved, indent=2))
+    # Log scenario save to audit
+    audit.log_entry(
+        action='scenario_save',
+        user='system',
+        key=scenario_name,
+        notes=f'Scenario saved with assumptions: tax={council_tax_increase}%, grant={grant_change}%, pay={pay_award}%'
+    )
     st.sidebar.success('Scenario saved')
 
 if bookmark_file.exists():
@@ -827,6 +844,13 @@ if st.button('Generate PDF Report'):
         pdf_path = generate_pdf_report(str(out_path), 'MTFS Budget Gap Simulator — Report', kpis_for_report, note=f"Scenario: {st.session_state.get('scenario','Custom')}")
         with open(pdf_path, 'rb') as fh:
             data = fh.read()
+        # Log PDF export to audit
+        audit.log_entry(
+            action='export',
+            user='system',
+            key='mtfs_report.pdf',
+            notes=f'PDF report generated - Gap: £{kpis["total_4_year_gap"]:.1f}m, RAG: {rag_rating}'
+        )
         st.download_button('Download PDF', data, file_name='mtfs_report.pdf', mime='application/pdf')
     except Exception as e:
         st.error(f"Failed to generate PDF: {e}")
