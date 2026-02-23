@@ -18,7 +18,7 @@ import sys
 modules_path = Path(__file__).parent.parent / 'modules'
 sys.path.insert(0, str(modules_path))
 
-from calculations import MTFSCalculator
+from financial_model import FinancialModel
 from scenarios import Scenarios
 from rag_rating import RAGRating
 from report import generate_pdf_report
@@ -81,22 +81,78 @@ with st.sidebar:
 # Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""
 <style>
+    :root {
+        --brand-primary: #00529F; /* Professional Blue */
+        --brand-secondary: #6AB5FF;
+        --accent-success: #28a745;
+        --accent-warning: #ffc107;
+        --accent-danger: #dc3545;
+        --neutral-darkest: #1a1a1a;
+        --neutral-dark: #4a4a4a;
+        --neutral-medium: #9b9b9b;
+        --neutral-light: #e6e6e6;
+        --neutral-lightest: #f9f9f9;
+        --background-color: #FFFFFF;
+        --card-background-color: #FFFFFF;
+        --card-border-color: #E0E0E0;
+        --shadow-soft: 0 4px 6px rgba(0, 0, 0, 0.05);
+        --shadow-medium: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
     /* Hide Streamlit header, main menu (hamburger) and footer */
     #MainMenu {visibility: hidden !important;}
     header {visibility: hidden !important;}
     footer {visibility: hidden !important;}
 
-    /* Reduce default padding for denser layout */
-    .block-container {padding-top: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem;}
-    .stSidebar {padding-top: 0.5rem;}
+    /* General Layout */
+    .block-container {padding-top: 1rem; padding-left: 1.5rem; padding-right: 1.5rem;}
+    .stSidebar {padding-top: 1rem; background-color: var(--neutral-lightest);}
+
+    /* Card Layout */
+    .card {
+        background-color: var(--card-background-color);
+        border: 1px solid var(--card-border-color);
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: var(--shadow-soft);
+        transition: all 0.2s ease-in-out;
+    }
+    .card:hover {
+        box-shadow: var(--shadow-medium);
+        transform: translateY(-2px);
+    }
+    
+    /* Typography */
+    .section-header {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--neutral-darkest);
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+    .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--neutral-medium);
+        margin-bottom: 8px;
+    }
+    .card-metric {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--brand-primary);
+    }
+    .card-delta {
+        font-size: 14px;
+        color: var(--neutral-dark);
+    }
 
     /* Topbar */
     .topbar {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 12px 18px;
-        box-shadow: var(--shadow);
+        background: var(--background-color);
+        border-bottom: 1px solid var(--card-border-color);
+        padding: 12px 24px;
     }
     .topbar-inner {
         display:flex;
@@ -109,108 +165,100 @@ st.markdown("""
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background: color-mix(in srgb, var(--accent) 18%, white);
-        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        background: var(--brand-primary);
         display:flex;
         align-items:center;
         justify-content:center;
         font-weight:700;
-        color: var(--accent);
+        color: white;
         font-size: 13px;
-        letter-spacing: 0.06em;
     }
-    .brand-title { font-weight: 700; font-size: 18px; }
-    .brand-subtitle { font-size: 12px; color: var(--muted); }
+    .brand-title { font-weight: 600; font-size: 20px; color: var(--neutral-darkest); }
+    .brand-subtitle { font-size: 12px; color: var(--neutral-dark); }
     .topbar-nav { display:flex; align-items:center; gap: 8px; flex-wrap: wrap; }
     .nav-link {
-        color: var(--accent);
-        border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-        background: color-mix(in srgb, var(--accent) 10%, white);
+        color: var(--brand-primary);
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        background: transparent;
+        transition: background-color 0.2s;
     }
-    .nav-link:hover { text-decoration: none; filter: brightness(0.98); }
-    .role-badge {
+    .nav-link:hover { 
+        text-decoration: none; 
+        background-color: var(--neutral-lightest);
+    }
+    .role-badge, .demo-badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         padding: 4px 10px;
-        border-radius: 999px;
+        border-radius: 16px;
         font-size: 11px;
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        background: color-mix(in srgb, var(--accent) 12%, white);
-        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-        color: var(--accent);
+    }
+    .role-badge {
+        background: var(--neutral-light);
+        color: var(--neutral-dark);
     }
     .demo-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        background: rgba(217, 119, 6, 0.12);
-        border: 1px solid rgba(217, 119, 6, 0.35);
-        color: #b45309;
+        background: #FFFBEB; /* Corresponds to warning accent */
+        color: #B45309;
     }
 
+    /* KPI Strip as Cards */
     .s151-strip {
-        margin-top: 14px;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 10px 14px;
-        box-shadow: var(--shadow-soft);
+        margin-top: 1.5rem;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
     }
     .s151-item {
-        background: var(--panel-alt);
-        border: 1px solid var(--border);
+        /* This will now be a card */
+        background-color: var(--card-background-color);
+        border: 1px solid var(--card-border-color);
         border-radius: 12px;
-        padding: 8px 10px;
+        padding: 16px;
+        box-shadow: var(--shadow-soft);
     }
     .s151-label {
-        font-size: 11px;
+        font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: var(--muted);
-        margin-bottom: 4px;
+        color: var(--neutral-medium);
+        margin-bottom: 6px;
     }
     .s151-value {
-        font-weight: 700;
-        font-size: 18px;
+        font-weight: 600;
+        font-size: 24px;
+        color: var(--brand-primary);
     }
     .rag-pill {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 14px;
         font-weight: 700;
-        background: rgba(0,0,0,0.06);
         color: white;
     }
+    .rag-pill.RED { background-color: var(--accent-danger); }
+    .rag-pill.AMBER { background-color: var(--accent-warning); color: var(--neutral-darkest);}
+    .rag-pill.GREEN { background-color: var(--accent-success); }
+
 
     @media (max-width: 900px) {
-        .topbar-nav { gap: 6px; }
-        .nav-link { padding: 4px 8px; font-size: 11px; }
-        .brand-title { font-size: 16px; }
-        .brand-mark { width: 32px; height: 32px; font-size: 11px; }
-        .s151-strip { grid-template-columns: 1fr; }
+        .topbar-nav { display: none; } /* On smaller screens, maybe hide the nav links */
+        .brand-title { font-size: 18px; }
     }
 
     @media (max-width: 640px) {
         .brand-subtitle { display: none; }
+        .block-container {padding-left: 1rem; padding-right: 1rem;}
     }
 </style>
 """, unsafe_allow_html=True)
@@ -455,9 +503,9 @@ with st.sidebar:
 # MAIN CONTENT: RUN CALCULATIONS
 # ============================================================================
 
-calculator = MTFSCalculator(base_data)
+model = FinancialModel(base_data)
 
-projection_df = calculator.project_mtfs(
+projection_df = model.run_mtfs_projection(
     council_tax_increase_pct=council_tax_increase,
     business_rates_growth_pct=business_rates_growth,
     grant_change_pct=grant_change,
@@ -470,6 +518,7 @@ projection_df = calculator.project_mtfs(
     use_of_reserves_pct=use_of_reserves,
     protect_social_care=protect_social_care,
 )
+projection_df = model.calculate_cipfa_indicators(projection_df)
 
 # === Phase 2 Feature: Savings Strategy Builder ===
 st.sidebar.markdown("---")
@@ -601,7 +650,7 @@ stochastic_results = None
 if enable_stochastic:
     samples = []
     for _ in range(int(stochastic_runs)):
-        sample = calculator.project_mtfs(
+        sample = model.run_mtfs_projection(
             council_tax_increase_pct=max(0.0, np.random.normal(council_tax_increase, council_tax_increase * stochastic_std_pct / 100)),
             business_rates_growth_pct=np.random.normal(business_rates_growth, abs(business_rates_growth) * stochastic_std_pct / 100),
             grant_change_pct=np.random.normal(grant_change, abs(grant_change) * stochastic_std_pct / 100),
@@ -724,7 +773,7 @@ if saved:
         mime="application/json"
     )
 
-kpis = calculator.calculate_kpis(projection_df, base_budget_year1)
+kpis = model.calculate_kpis(projection_df, base_budget_year1)
 sustainability = RAGRating.calculate_sustainability_metrics(
     projection_df, 
     base_budget_year1
@@ -891,19 +940,19 @@ st.markdown(f"""
     <div class="s151-item">
         <div class="s151-label">Sustainability RAG</div>
         <div class="s151-value">
-            <span class="rag-pill" style="background:{rag_color};">{rag_rating}</span>
+            <span class="rag-pill {rag_rating}">{rag_rating}</span>
         </div>
-        <div style="font-size:12px; color:var(--muted); margin-top:4px;">{rag_reasoning}</div>
+        <div style="font-size:12px; color:var(--neutral-dark); margin-top:4px;">{rag_reasoning}</div>
     </div>
     <div class="s151-item">
         <div class="s151-label">4-Year Funding Gap</div>
         <div class="s151-value">£{gap_amount:.1f}m</div>
-        <div style="font-size:12px; color:var(--muted); margin-top:4px;">{gap_pct:.1f}% of Year 1 budget</div>
+        <div style="font-size:12px; color:var(--neutral-dark); margin-top:4px;">{gap_pct:.1f}% of Year 1 budget</div>
     </div>
     <div class="s151-item">
         <div class="s151-label">Final Reserves</div>
         <div class="s151-value">£{final_reserves:.1f}m</div>
-        <div style="font-size:12px; color:var(--muted); margin-top:4px;">Policy target {policy_target:.1f}%</div>
+        <div style="font-size:12px; color:var(--neutral-dark); margin-top:4px;">Policy target {policy_target:.1f}%</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -952,73 +1001,71 @@ try:
         'use_of_reserves_pct': use_of_reserves,
         'protect_social_care': protect_social_care,
     }
-    stress_df = build_stress_table(calculator, base_params, risk_df)
+    stress_df = build_stress_table(model, base_params, risk_df)
     if not stress_df.empty:
         risk_top = stress_df.iloc[0]
 except Exception:
     risk_top = None
 
-col1, col2, col3, col4, col5 = st.columns(5)
-
-with col1:
+st.markdown("<div class='section-header'>Strategic Headlines</div>", unsafe_allow_html=True)
+c1, c2, c3 = st.columns(3)
+with c1:
     gap_amount = kpis['total_4_year_gap']
-    gap_color = "red" if gap_amount > 20 else "orange" if gap_amount > 10 else "green"
-    st.metric(
-        "💰 Cumulative Gap",
-        f"£{gap_amount:.1f}m",
-        delta=f"{(gap_amount / base_budget_year1 * 100):.1f}% of budget",
-        delta_color="inverse",
-        help=get_help('cumulative_gap')
-    )
-
-with col2:
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">💰 Cumulative Gap</div>
+        <div class="card-metric">£{gap_amount:.1f}m</div>
+        <div class="card-delta">{(gap_amount / base_budget_year1 * 100):.1f}% of budget</div>
+    </div>
+    """, unsafe_allow_html=True)
+with c2:
     if kpis['year_reserves_exhausted']:
         reserves_text = f"Year {kpis['year_reserves_exhausted']}"
-        reserves_color = "orange"
     else:
         reserves_text = "✓ Sustainable"
-        reserves_color = "green"
-    st.metric(
-        "📉 Reserves Status",
-        reserves_text,
-        delta=f"Final: £{projection_df.iloc[-1]['Closing_Reserves']:.1f}m",
-        help=get_help('reserves_status')
-    )
-
-with col3:
-    savings_req = kpis['savings_required_pct']
-    st.metric(
-        "🎯 Additional Savings Needed",
-        f"{savings_req:.1f}%",
-        delta="of annual budget",
-        delta_color="inverse",
-        help=get_help('savings_needed')
-    )
-
-with col4:
-    rag_color_map = {"RED": "#d62728", "AMBER": "#ff7f0e", "GREEN": "#2ca02c"}
     st.markdown(f"""
-    <div style="background-color: {rag_color_map[rag_rating]}; color: white; padding: 15px; border-radius: 5px; text-align: center;">
-        <p style="font-size: 14px; margin: 0;">Financial Sustainability</p>
-        <p style="font-size: 24px; font-weight: bold; margin: 5px 0;">{rag_rating}</p>
-        <p style="font-size: 11px; margin: 0; line-height: 1.3;">{rag_reasoning}</p>
+    <div class="card">
+        <div class="card-title">📉 Reserves Status</div>
+        <div class="card-metric">{reserves_text}</div>
+        <div class="card-delta">Final: £{projection_df.iloc[-1]['Closing_Reserves']:.1f}m</div>
+    </div>
+    """, unsafe_allow_html=True)
+with c3:
+    savings_req = kpis['savings_required_pct']
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">🎯 Additional Savings Needed</div>
+        <div class="card-metric">{savings_req:.1f}%</div>
+        <div class="card-delta">of annual budget</div>
     </div>
     """, unsafe_allow_html=True)
 
-with col5:
-    # Reserves Policy Compliance
+st.markdown("<br/>", unsafe_allow_html=True)
+c4, c5 = st.columns(2)
+with c4:
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Financial Sustainability</div>
+        <div style="text-align: center; margin-top: 1rem;">
+            <span class="rag-pill {rag_rating}" style="font-size: 24px; padding: 12px 24px;">{rag_rating}</span>
+        </div>
+        <p style="font-size: 12px; color: var(--neutral-dark); text-align: center; margin-top: 1rem;">{rag_reasoning}</p>
+    </div>
+    """, unsafe_allow_html=True)
+with c5:
     policy_status = policy_check['by_year'][-1]['status'] if policy_check['by_year'] else 'UNKNOWN'
-    policy_color_map = {"RED": "#d62728", "AMBER": "#ff7f0e", "GREEN": "#2ca02c"}
     policy_label = (
         "🔴 Non-Compliant" if policy_status == "RED"
         else "🟡 Below Target" if policy_status == "AMBER"
         else "🟢 Policy Met"
     )
     st.markdown(f"""
-    <div style="background-color: {policy_color_map[policy_status]}; color: white; padding: 15px; border-radius: 5px; text-align: center;">
-        <p style="font-size: 14px; margin: 0;">Reserves Policy</p>
-        <p style="font-size: 18px; font-weight: bold; margin: 5px 0;">{policy_label}</p>
-        <p style="font-size: 11px; margin: 0; line-height: 1.3;">Min: {reserves_policy.min_pct}%  |  Target: {reserves_policy.target_pct}%</p>
+    <div class="card">
+        <div class="card-title">Reserves Policy Compliance</div>
+        <div style="text-align: center; margin-top: 1rem;">
+             <p style="font-size: 24px; font-weight: bold; margin: 5px 0;">{policy_label}</p>
+        </div>
+        <p style="font-size: 12px; color: var(--neutral-dark); text-align: center; margin-top: 1rem;">Min: {reserves_policy.min_pct}%  |  Target: {reserves_policy.target_pct}%</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1054,7 +1101,7 @@ base_gap = base_proj['Annual_Budget_Gap'].sum()
 base_reserves = base_proj.iloc[-1]['Closing_Reserves']
 
 pess = Scenarios.get_pessimistic_case()
-pess_proj = calculator.project_mtfs(
+pess_proj = model.run_mtfs_projection(
     council_tax_increase_pct=pess['council_tax_increase_pct'],
     business_rates_growth_pct=pess['business_rates_growth_pct'],
     grant_change_pct=pess['grant_change_pct'],
@@ -1217,7 +1264,7 @@ scenarios_dict = Scenarios.get_all_scenarios()
 scenario_results = {}
 
 for scenario_name, scenario_params in scenarios_dict.items():
-    scenario_proj = calculator.project_mtfs(
+    scenario_proj = model.run_mtfs_projection(
         council_tax_increase_pct=scenario_params['council_tax_increase_pct'],
         business_rates_growth_pct=scenario_params['business_rates_growth_pct'],
         grant_change_pct=scenario_params['grant_change_pct'],
@@ -1231,7 +1278,7 @@ for scenario_name, scenario_params in scenarios_dict.items():
         protect_social_care=scenario_params['protect_social_care'],
     )
     
-    scenario_kpis = calculator.calculate_kpis(scenario_proj, base_budget_year1)
+    scenario_kpis = model.calculate_kpis(scenario_proj, base_budget_year1)
     scenario_final_reserves = scenario_proj.iloc[-1]['Closing_Reserves']
     scenario_rag, _ = RAGRating.get_rating(scenario_proj, base_budget_year1,
                                           (scenario_final_reserves / base_budget_year1) * 100)
@@ -1246,19 +1293,18 @@ for scenario_name, scenario_params in scenarios_dict.items():
 col1, col2, col3 = st.columns(3)
 
 scenarios_list = list(scenario_results.keys())
-colors_map = {"RED": "#d62728", "AMBER": "#ff7f0e", "GREEN": "#2ca02c"}
 
 for idx, scenario_name in enumerate(scenarios_list):
     with [col1, col2, col3][idx]:
         result = scenario_results[scenario_name]
-        rag_color = colors_map[result['rag']]
+        rag_rating = result['rag']
         
         st.markdown(f"""
-        <div style="background-color: #f0f2f6; padding: 15px; border-radius: 5px; border-left: 4px solid {rag_color};">
-            <h4>{scenario_name}</h4>
+        <div class="card">
+            <div class="card-title">{scenario_name}</div>
             <p><strong>4-Year Gap:</strong> £{result['gap']:.1f}m</p>
             <p><strong>Final Reserves:</strong> £{result['final_reserves']:.1f}m</p>
-            <p><strong>Rating:</strong> <span style="color: {rag_color}; font-weight: bold;">{result['rag']}</span></p>
+            <p><strong>Rating:</strong> <span class="rag-pill {rag_rating}">{rag_rating}</span></p>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1268,7 +1314,7 @@ for idx, scenario_name in enumerate(scenarios_list):
 
 st.markdown("## Budget Gap Drivers (Year 1 Waterfall)")
 
-drivers = calculator.calculate_drivers_waterfall(projection_df, base_budget_year1)
+drivers = model.calculate_drivers_waterfall(projection_df, base_budget_year1)
 
 # Sort for waterfall (positive down, negative are pressures)
 waterfall_data = {
@@ -1303,6 +1349,37 @@ fig_waterfall.update_layout(
 st.plotly_chart(fig_waterfall, use_container_width=True)
 
 # ============================================================================
+# SECTION 6B: REVENUE IMPACT BRIDGE
+# ============================================================================
+
+st.markdown("## Capital Financing Revenue Impact Bridge")
+
+# Get data from session state (or use dummy data)
+initial_gap = st.session_state.get('initial_gap', 10) # Dummy data
+mrp_impact = st.session_state.get('mrp_impact', 2) # Dummy data
+interest_impact = st.session_state.get('interest_impact', 1) # Dummy data
+
+bridge_data = model.calculate_revenue_impact_bridge(initial_gap, mrp_impact, interest_impact)
+
+fig_bridge = go.Figure(go.Waterfall(
+    name = "Revenue Impact Bridge",
+    orientation = "v",
+    measure = ["relative", "relative", "relative", "total"],
+    x = ["Initial Gap", "MRP Impact", "Interest Impact", "Revised Gap"],
+    textposition = "outside",
+    text = [f"£{initial_gap:.1f}m", f"£{mrp_impact:.1f}m", f"£{interest_impact:.1f}m", f"£{initial_gap+mrp_impact+interest_impact:.1f}m"],
+    y = [initial_gap, mrp_impact, interest_impact, initial_gap+mrp_impact+interest_impact],
+    connector = {"line":{"color":"rgb(63, 63, 63)"}},
+))
+
+fig_bridge.update_layout(
+    title = "Capital Financing Revenue Impact Bridge",
+    showlegend = True
+)
+
+st.plotly_chart(fig_bridge, use_container_width=True)
+
+# ============================================================================
 # SECTION 7: DETAILED PROJECTION TABLE
 # ============================================================================
 
@@ -1332,31 +1409,67 @@ st.dataframe(
 # SECTION 8: SUSTAINABILITY METRICS
 # ============================================================================
 
-st.markdown("## Financial Sustainability Indicators")
+st.markdown("<div class='section-header'>Financial Sustainability Indicators</div>", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(
-        "Reserves / Budget Ratio (Year 5)",
-        f"{sustainability['reserves_to_budget_pct']:.1f}%",
-        delta=f"Target: {RAGRating.MIN_RESERVES_PCT}% minimum",
-        delta_color="inverse" if sustainability['reserves_to_budget_pct'] < RAGRating.MIN_RESERVES_PCT else "normal"
-    )
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Reserves / Budget Ratio (Year 5)</div>
+        <div class="card-metric">{sustainability['reserves_to_budget_pct']:.1f}%</div>
+        <div class="card-delta">Target: {RAGRating.MIN_RESERVES_PCT}% minimum</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col2:
-    st.metric(
-        "Avg Annual Savings Delivery",
-        f"{sustainability['savings_as_pct_budget']:.1f}%",
-        delta="of operating budget",
-    )
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Avg Annual Savings Delivery</div>
+        <div class="card-metric">{sustainability['savings_as_pct_budget']:.1f}%</div>
+        <div class="card-delta">of operating budget</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 with col3:
-    st.metric(
-        "Funding Volatility Score",
-        f"{sustainability['funding_volatility_score']:.2f}",
-        delta="Lower = more stable",
-    )
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Funding Volatility Score</div>
+        <div class="card-metric">{sustainability['funding_volatility_score']:.2f}</div>
+        <div class="card-delta">Lower = more stable</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("<div class='section-header'>CIPFA Resilience Indicators</div>", unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Financing Costs to Net Revenue Stream</div>
+        <div class="card-metric">{projection_df.iloc[-1]['Financing_Costs_to_Net_Revenue_Stream_Pct']:.1f}%</div>
+        <div class="card-delta">Year 5</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Change in Reserves (Year 5)</div>
+        <div class="card-metric">£{projection_df.iloc[-1]['Change_in_Reserves']:.1f}m</div>
+        <div class="card-delta">Target: Maintain or increase</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class="card">
+        <div class="card-title">Capital Programme Sustainability</div>
+        <div class="card-metric">{projection_df.iloc[-1]['Capital_Programme_Sustainability_Score']:.1f} / 5.0</div>
+        <div class="card-delta">Lower is better</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ============================================================================
 # SECTION X: STOCHASTIC & DEPARTMENTAL OUTPUTS + PDF EXPORT

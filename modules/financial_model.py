@@ -1,40 +1,36 @@
 """
-MTFS Budget Gap Simulator - Calculation Engine
-Core financial projection logic
+Centralized Financial Model for the MTFS Budget Simulator.
+This module contains all the core financial logic for the application.
 """
-
 import pandas as pd
 import numpy as np
 
+class FinancialModel:
+    """
+    A centralized class to handle all financial calculations for the MTFS simulator.
+    """
 
-class MTFSCalculator:
-    """
-    Deterministic rule-based MTFS calculator.
-    Provides transparent, auditable financial projections.
-    """
-    
     def __init__(self, base_data):
         """
-        Initialize with base financial data.
-        
-        Args:
-            base_data: DataFrame with columns for Year, financial items, cost bases
+        Initializes the FinancialModel with base financial data.
+        :param base_data: A pandas DataFrame with the base financial data.
         """
-        self.base_data = base_data
+        self.base_data = base_data.copy()
+        self.base_budget_year1 = self.base_data[self.base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
         self.years = 5
-        
-    def project_mtfs(self,
-                     council_tax_increase_pct,
-                     business_rates_growth_pct,
-                     grant_change_pct,
-                     fees_charges_growth_pct,
-                     pay_award_pct,
-                     general_inflation_pct,
-                     asc_demand_growth_pct,
-                     csc_demand_growth_pct,
-                     annual_savings_target_pct,
-                     use_of_reserves_pct,
-                     protect_social_care=False):
+
+    def run_mtfs_projection(self,
+                          council_tax_increase_pct,
+                          business_rates_growth_pct,
+                          grant_change_pct,
+                          fees_charges_growth_pct,
+                          pay_award_pct,
+                          general_inflation_pct,
+                          asc_demand_growth_pct,
+                          csc_demand_growth_pct,
+                          annual_savings_target_pct,
+                          use_of_reserves_pct,
+                          protect_social_care=False):
         """
         Project full MTFS forward over 5 years.
         
@@ -109,7 +105,9 @@ class MTFSCalculator:
             annual_savings = base_expenditure_with_savings * (annual_savings_target_pct / 100)
             
             # Final projected expenditure
-            projected_expenditure = base_expenditure_with_savings - annual_savings
+            mrp_cost = year_data['MRP_Cost']
+            interest_cost = year_data['Interest_Cost']
+            projected_expenditure = base_expenditure_with_savings - annual_savings + mrp_cost + interest_cost
             
             # === BUDGET GAP ===
             
@@ -135,6 +133,8 @@ class MTFSCalculator:
                 'ASC_Demand_Impact': asc_impact,
                 'CSC_Demand_Impact': csc_impact,
                 'Annual_Savings': annual_savings,
+                'MRP_Cost': mrp_cost,
+                'Interest_Cost': interest_cost,
                 'Projected_Expenditure': projected_expenditure,
                 'Annual_Budget_Gap': annual_budget_gap,
                 'Cumulative_Gap': cumulative_gap,
@@ -146,7 +146,7 @@ class MTFSCalculator:
             current_reserves = closing_reserves
         
         return pd.DataFrame(results)
-    
+
     def calculate_kpis(self, projection_df, base_budget):
         """
         Calculate headline KPIs from projection.
@@ -173,7 +173,7 @@ class MTFSCalculator:
             'savings_required_pct': savings_required_pct,
             'council_tax_equivalent_impact': council_tax_equivalent,
         }
-    
+
     def calculate_drivers_waterfall(self, projection_df, baseline_funding):
         """
         Calculate waterfall view of budget gap drivers for Year 1.
@@ -194,3 +194,33 @@ class MTFSCalculator:
         }
         
         return drivers
+
+    def calculate_cipfa_indicators(self, projection_df):
+        """
+        Calculate CIPFA resilience indicators from projection.
+        """
+        
+        # Financing costs to net revenue stream
+        projection_df['Financing_Costs'] = projection_df['MRP_Cost'] + projection_df['Interest_Cost']
+        projection_df['Financing_Costs_to_Net_Revenue_Stream_Pct'] = (projection_df['Financing_Costs'] / projection_df['Total_Funding']) * 100
+        
+        # Change in reserves
+        projection_df['Change_in_Reserves'] = projection_df['Closing_Reserves'] - projection_df['Opening_Reserves']
+        
+        # Capital programme sustainability score (placeholder)
+        projection_df['Capital_Programme_Sustainability_Score'] = np.random.uniform(1, 5, len(projection_df))
+        
+        return projection_df
+
+    def calculate_revenue_impact_bridge(self, initial_gap, mrp_impact, interest_impact):
+        """
+        Calculates the data for the revenue impact bridge waterfall chart.
+        """
+        
+        bridge_data = {
+            'Initial Gap': initial_gap,
+            'MRP Impact': mrp_impact,
+            'Interest Impact': interest_impact,
+        }
+        
+        return bridge_data
