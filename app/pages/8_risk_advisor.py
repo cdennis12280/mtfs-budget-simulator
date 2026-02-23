@@ -58,38 +58,58 @@ def render_mockup() -> None:
 @import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --bg: #0a0f1c;
-  --bg-2: #0d111c;
-  --surface: #111827;
-  --surface-2: #1e293b;
-  --surface-3: rgba(30, 41, 59, 0.55);
-  --border: rgba(148, 163, 184, 0.16);
-  --border-soft: rgba(148, 163, 184, 0.08);
+  --bg: #05070f;
+  --bg-2: #080c1a;
+  --bg-3: #0a1020;
+  --surface: rgba(14, 21, 37, 0.72);
+  --surface-2: rgba(22, 32, 54, 0.55);
+  --surface-3: rgba(22, 32, 54, 0.4);
+  --border: rgba(148, 163, 184, 0.2);
+  --border-soft: rgba(148, 163, 184, 0.12);
   --text: #e2e8f0;
-  --muted: #94a3b8;
-  --muted-2: #cbd5f5;
-  --accent: #6366f1;
-  --accent-soft: rgba(99, 102, 241, 0.25);
+  --muted: #9aa3b2;
+  --muted-2: #cdd6ff;
+  --accent: #7c83ff;
+  --accent-2: #a7afff;
+  --accent-cyan: #38bdf8;
+  --accent-soft: rgba(124, 131, 255, 0.22);
   --danger: #e11d48;
-  --warning: #d97706;
+  --warning: #f59e0b;
   --success: #10b981;
-  --shadow-1: 0 24px 50px rgba(2, 6, 23, 0.45);
-  --shadow-2: 0 10px 28px rgba(2, 6, 23, 0.32);
-  --glow: 0 0 0 1px rgba(99, 102, 241, 0.25), 0 0 28px rgba(99, 102, 241, 0.22);
-  --radius-xl: 22px;
-  --radius-lg: 16px;
+  --shadow-1: 0 34px 80px rgba(2, 6, 23, 0.65);
+  --shadow-2: 0 18px 42px rgba(2, 6, 23, 0.45);
+  --shadow-soft: 0 10px 26px rgba(2, 6, 23, 0.4);
+  --glow: 0 0 0 1px rgba(124, 131, 255, 0.35), 0 0 60px rgba(124, 131, 255, 0.35);
+  --radius-xl: 24px;
+  --radius-lg: 18px;
   --radius-md: 12px;
   --radius-sm: 10px;
 }
 
 html, body, [data-testid="stAppViewContainer"] {
-  background: radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
-              radial-gradient(900px 500px at 90% -20%, rgba(14, 165, 233, 0.12), transparent 55%),
-              linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%) !important;
+  background: radial-gradient(1000px 520px at 6% -10%, rgba(124, 131, 255, 0.3), transparent 60%),
+              radial-gradient(900px 520px at 105% -15%, rgba(56, 189, 248, 0.18), transparent 60%),
+              radial-gradient(700px 420px at 45% 120%, rgba(14, 165, 233, 0.15), transparent 60%),
+              linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 50%, var(--bg-3) 100%) !important;
   color: var(--text) !important;
   font-family: "Inter Tight", "SF Pro Display", "Segoe UI", sans-serif !important;
   letter-spacing: 0.01em;
+  line-height: 1.6;
 }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(1200px 600px at 60% 120%, rgba(8, 12, 24, 0.65), transparent 55%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.04), transparent 35%),
+    linear-gradient(200deg, rgba(124, 131, 255, 0.05), transparent 30%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-testid="stAppViewContainer"] > div { position: relative; z-index: 1; }
 
 #MainMenu, header, footer {visibility: hidden !important;}
 
@@ -97,13 +117,13 @@ html, body, [data-testid="stAppViewContainer"] {
   padding-top: 1.2rem;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
-  max-width: 1400px;
+  max-width: 1440px;
 }
 
 [data-testid="stSidebar"] {
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
+  background: linear-gradient(180deg, rgba(8, 12, 24, 0.98) 0%, rgba(10, 16, 34, 0.96) 100%) !important;
   border-right: 1px solid var(--border);
-  box-shadow: 10px 0 40px rgba(2, 6, 23, 0.35);
+  box-shadow: 20px 0 48px rgba(2, 6, 23, 0.55);
 }
 
 [data-testid="stSidebarNav"] {display: none !important;}
@@ -119,8 +139,8 @@ html, body, [data-testid="stAppViewContainer"] {
   padding: 14px 16px;
   margin: 0.6rem 0.6rem 1.6rem 0.6rem;
   border-radius: 16px;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-soft);
+  background: rgba(12, 18, 34, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   box-shadow: var(--shadow-2);
 }
 
@@ -171,6 +191,7 @@ html, body, [data-testid="stAppViewContainer"] {
   text-decoration: none;
   font-size: 14px;
   position: relative;
+  transition: all 0.2s ease;
 }
 
 .nav-item .nav-icon {
@@ -183,8 +204,8 @@ html, body, [data-testid="stAppViewContainer"] {
 
 .nav-item.active {
   color: var(--text);
-  background: rgba(99, 102, 241, 0.12);
-  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: rgba(124, 131, 255, 0.18);
+  border: 1px solid rgba(124, 131, 255, 0.5);
   box-shadow: var(--glow);
 }
 
@@ -206,16 +227,28 @@ html, body, [data-testid="stAppViewContainer"] {
   gap: 16px;
   padding: 24px 26px;
   border-radius: var(--radius-xl);
-  background: linear-gradient(140deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75));
-  border: 1px solid var(--border);
+  background: linear-gradient(140deg, rgba(10, 16, 32, 0.96), rgba(24, 36, 62, 0.8));
+  border: 1px solid rgba(124, 131, 255, 0.25);
   box-shadow: var(--shadow-1);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(22px);
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(124, 131, 255, 0.12), transparent 45%, rgba(56, 189, 248, 0.12));
+  opacity: 0.6;
+  pointer-events: none;
 }
 
 .header-title {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 700;
   color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 .header-subtitle {
@@ -232,8 +265,8 @@ html, body, [data-testid="stAppViewContainer"] {
   gap: 14px;
   padding: 10px 14px;
   border-radius: 16px;
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid var(--border-soft);
+  background: rgba(10, 15, 28, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .avatar {
@@ -274,8 +307,8 @@ html, body, [data-testid="stAppViewContainer"] {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  border: 1px solid var(--border-soft);
-  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(12, 18, 32, 0.7);
   display: grid;
   place-items: center;
 }
@@ -284,8 +317,8 @@ html, body, [data-testid="stAppViewContainer"] {
   margin-top: 18px;
   padding: 16px 20px;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(124, 131, 255, 0.45);
+  background: rgba(16, 24, 44, 0.75);
   box-shadow: var(--shadow-2);
   color: var(--muted-2);
   backdrop-filter: blur(14px);
@@ -300,11 +333,27 @@ html, body, [data-testid="stAppViewContainer"] {
 
 .table-card {
   border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(10, 16, 30, 0.82);
   box-shadow: var(--shadow-1);
   padding: 16px;
   backdrop-filter: blur(18px);
+  position: relative;
+  overflow: hidden;
+}
+
+.table-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, rgba(124, 131, 255, 0.4), rgba(56, 189, 248, 0.2), transparent 70%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.8;
 }
 
 .risk-table {
@@ -319,26 +368,26 @@ html, body, [data-testid="stAppViewContainer"] {
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.65);
+  color: rgba(148, 163, 184, 0.75);
   padding: 6px 12px;
 }
 
 .risk-table tbody tr {
-  background: rgba(30, 41, 59, 0.55);
+  background: rgba(18, 28, 50, 0.68);
   border-radius: 14px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .risk-table tbody tr:hover {
-  background: rgba(30, 41, 59, 0.85);
-  box-shadow: 0 12px 26px rgba(2, 6, 23, 0.35);
+  background: rgba(28, 42, 72, 0.9);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.55);
   transform: translateY(-2px);
 }
 
 .risk-table tbody td {
   padding: 12px;
-  border-top: 1px solid rgba(148, 163, 184, 0.08);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .risk-table tbody tr td:first-child {
@@ -370,11 +419,11 @@ html, body, [data-testid="stAppViewContainer"] {
 .param-code {
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  color: rgba(226, 232, 240, 0.7);
-  background: rgba(15, 23, 42, 0.6);
+  color: rgba(226, 232, 240, 0.9);
+  background: rgba(8, 12, 24, 0.72);
   padding: 4px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border: 1px solid rgba(148, 163, 184, 0.22);
 }
 
 .direction {
@@ -385,7 +434,7 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 
 .direction.up { color: #a5b4fc; }
-.direction.down { color: var(--warning); }
+.direction.down { color: #f59e0b; }
 
 .pill {
   display: inline-flex;
@@ -420,7 +469,7 @@ html, body, [data-testid="stAppViewContainer"] {
   width: 120px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(148, 163, 184, 0.2);
   overflow: hidden;
 }
 
@@ -428,7 +477,7 @@ html, body, [data-testid="stAppViewContainer"] {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.7), rgba(165, 180, 252, 0.7));
+  background: linear-gradient(90deg, rgba(124, 131, 255, 0.8), rgba(56, 189, 248, 0.8));
 }
 
 .table-actions {
@@ -460,8 +509,8 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 
 .btn-primary {
-  background: var(--accent);
-  color: #0a0f1c;
+  background: linear-gradient(135deg, rgba(124, 131, 255, 0.95), rgba(99, 102, 241, 0.95));
+  color: #090c18;
   box-shadow: var(--shadow-2);
 }
 
@@ -472,7 +521,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 .btn-outline {
   background: transparent;
-  border-color: rgba(148, 163, 184, 0.3);
+  border-color: rgba(148, 163, 184, 0.35);
   color: var(--text);
 }
 
@@ -482,8 +531,8 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 
 .btn-ghost {
-  background: rgba(15, 23, 42, 0.7);
-  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(10, 15, 28, 0.7);
+  border-color: rgba(148, 163, 184, 0.25);
   color: var(--muted);
 }
 </style>
