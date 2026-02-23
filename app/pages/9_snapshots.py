@@ -20,8 +20,11 @@ from auth import require_auth, require_roles, auth_sidebar
 apply_theme()
 if not require_auth():
     st.stop()
-require_roles({"Admin", "Analyst"})
+require_roles({"Admin", "Analyst", "Read-only"})
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: restore actions are disabled.")
 page_header("Forecast Snapshots", "Review rolling forecast snapshots, export history, or restore assumptions.")
 st.markdown("""
 <div class="app-callout">
@@ -49,10 +52,10 @@ st.markdown("---")
 st.markdown("## Filter & Inspect")
 
 names = sorted(df['name'].unique().tolist())
-sel_name = st.selectbox("Filter by name", options=['All'] + names)
+sel_name = st.selectbox("Filter by name", options=['All'] + names, disabled=read_only)
 filtered = df if sel_name == 'All' else df[df['name'] == sel_name]
 
-latest_only = st.checkbox("Show latest version per name", value=False)
+latest_only = st.checkbox("Show latest version per name", value=False, disabled=read_only)
 if latest_only and not filtered.empty:
     filtered = filtered.sort_values('timestamp').groupby('name').tail(1)
 
@@ -65,7 +68,7 @@ st.markdown("---")
 st.markdown("## Restore Assumptions")
 
 options = filtered.sort_values('timestamp', ascending=False)['snapshot_id'].tolist()
-selected = st.selectbox("Select snapshot to restore", options=options)
+selected = st.selectbox("Select snapshot to restore", options=options, disabled=read_only)
 
 selected_row = filtered[filtered['snapshot_id'] == selected].iloc[0]
 assumptions = selected_row.get('assumptions', {})
@@ -73,7 +76,7 @@ assumptions = selected_row.get('assumptions', {})
 with st.expander("View assumptions", expanded=False):
     st.json(assumptions)
 
-if st.button("Apply snapshot assumptions to session"):
+if st.button("Apply snapshot assumptions to session", disabled=read_only):
     for key, val in assumptions.items():
         st.session_state[key] = val
     audit = get_audit_log()

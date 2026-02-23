@@ -35,6 +35,8 @@ Example file structure:
 }
 ```
 
+Sample `data/auth_users.json` uses password `ChangeMe123!` for all demo users. Update before production.
+
 ## Password Hashing
 Supported format:
 - `pbkdf2$iterations$salt$hash`
@@ -53,4 +55,3 @@ Default role mapping:
 - `Read-only`: view-only pages
 
 Roles are enforced per page in the Streamlit router.
-

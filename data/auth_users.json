@@ -1,0 +1,17 @@
+{
+  "s151_officer": {
+    "password": "pbkdf2$120000$council$241a3f887de2c065c4554c13767f7a99f22448fb71219d2cf08441c004e105c0",
+    "role": "Admin",
+    "tenant": "council-a"
+  },
+  "finance_analyst": {
+    "password": "pbkdf2$120000$council$241a3f887de2c065c4554c13767f7a99f22448fb71219d2cf08441c004e105c0",
+    "role": "Analyst",
+    "tenant": "council-a"
+  },
+  "viewer": {
+    "password": "pbkdf2$120000$council$241a3f887de2c065c4554c13767f7a99f22448fb71219d2cf08441c004e105c0",
+    "role": "Read-only",
+    "tenant": "council-a"
+  }
+}

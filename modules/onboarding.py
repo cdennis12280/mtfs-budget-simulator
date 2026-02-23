@@ -12,13 +12,34 @@ def show_first_visit_banner():
     
     col1, col2 = st.columns([10, 1])
     with col1:
+        role = st.session_state.get("auth_role", "User")
+        role_hint = {
+            "Admin": "As Admin, you can set policy thresholds, manage inputs, and export governance reports.",
+            "Analyst": "As Analyst, focus on assumptions, sensitivities, and scenario evidence for leadership.",
+            "Read-only": "Read-only mode: review dashboards, reports, and evidence without changing assumptions.",
+        }.get(role, "Use the dashboard to review the current MTFS position.")
+        setup_pending = not st.session_state.get("profile_setup_complete", False)
+        setup_line = (
+            "Complete the Council Profile setup before presenting to leadership."
+            if setup_pending
+            else "Council Profile setup is complete."
+        )
         st.info("""
         **👋 Welcome to MTFS Budget Gap Simulator!**
         
         This tool helps Section 151 Officers and Leadership Teams model medium-term budget scenarios and test financial resilience.
         
-        **Quick Start:** 1) Review assumptions in the sidebar, 2) Explore the dashboard charts, 3) Try scenarios via the buttons, 
-        4) Use `Inputs` page to customize your council's data, 5) Check `Commercial` for investment appraisals.
+        **First-run checklist:**
+        - Review baseline data in `Inputs`
+        - Confirm reserves policy in `Settings`
+        - Adjust assumptions in the dashboard sidebar
+        - Save a governance snapshot
+        - Export a statutory PDF from `Reports`
+        
+        **Role guidance:** {role_hint}
+        
+        **Setup status:** {setup_line}
+        **Open setup wizard:** `/council_profile`
         """)
     with col2:
         if st.button('✕', help="Dismiss this banner"):

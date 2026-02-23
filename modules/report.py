@@ -49,7 +49,8 @@ def generate_pdf_report(output_path, title, kpis, note=None):
 
 
 def generate_mtfs_statutory_report(output_path, council_name, report_date, scenarios_data,
-                                   base_budget, reserves_policy=None, risk_summary=None):
+                                   base_budget, reserves_policy=None, risk_summary=None,
+                                   risk_appetite_statement=None, management_summary=None):
     """
     Generate a professional, multi-scenario MTFS statutory report.
     Audit-ready PDF with governance-grade formatting and compliance sections.
@@ -139,8 +140,24 @@ def generate_mtfs_statutory_report(output_path, council_name, report_date, scena
     """, styles['Normal']))
     
     story.append(PageBreak())
+
+    # ===== PAGE 2: MANAGEMENT SUMMARY =====
+    story.append(Paragraph("MANAGEMENT SUMMARY", heading_style))
+    story.append(Spacer(1, 6*mm))
+    if not management_summary:
+        management_summary = (
+            "This report provides an executive view of the medium-term funding gap, "
+            "reserves trajectory, and actions required to maintain financial sustainability."
+        )
+    story.append(Paragraph(management_summary, styles['Normal']))
+    story.append(Spacer(1, 8*mm))
+    if risk_appetite_statement:
+        story.append(Paragraph("<b>Risk Appetite Statement</b>", styles['Normal']))
+        story.append(Paragraph(risk_appetite_statement, styles['Normal']))
+
+    story.append(PageBreak())
     
-    # ===== PAGE 2: EXECUTIVE SUMMARY =====
+    # ===== PAGE 3: EXECUTIVE SUMMARY =====
     story.append(Paragraph("EXECUTIVE SUMMARY", heading_style))
     story.append(Spacer(1, 6*mm))
     
@@ -440,4 +457,92 @@ def generate_mtfs_statutory_report(output_path, council_name, report_date, scena
     # Build PDF
     doc.build(story)
     
+    return os.path.abspath(output_path)
+
+
+def generate_executive_summary_pdf(output_path, council_name, report_date, base_data, base_budget,
+                                   reserves_policy=None, risk_appetite_statement=None,
+                                   management_summary=None):
+    """
+    Generate a one-page executive summary PDF for board papers.
+    """
+    doc = SimpleDocTemplate(output_path, pagesize=A4, topMargin=18*mm, bottomMargin=18*mm,
+                           leftMargin=18*mm, rightMargin=18*mm)
+    story = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'ExecTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#0b3d91'),
+        spaceAfter=6,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    heading_style = ParagraphStyle(
+        'ExecHeading',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#0b3d91'),
+        spaceAfter=4,
+        spaceBefore=6,
+        fontName='Helvetica-Bold'
+    )
+
+    story.append(Paragraph("MTFS EXECUTIVE SUMMARY", title_style))
+    story.append(Paragraph(f"{council_name} — {report_date}", styles['Normal']))
+    story.append(Spacer(1, 4*mm))
+
+    kpis = base_data.get("kpis", {})
+    rag = base_data.get("rag", "AMBER")
+    projection = base_data.get("projection")
+
+    total_gap = kpis.get("total_4_year_gap", 0)
+    savings_pct = kpis.get("savings_required_pct", 0)
+    final_reserves = projection.iloc[-1]['Closing_Reserves'] if projection is not None else 0
+    gap_pct = (total_gap / base_budget * 100) if base_budget else 0
+
+    if not management_summary:
+        management_summary = (
+            "This summary provides a board-ready view of the medium-term funding gap, "
+            "reserves trajectory, and actions required to maintain financial sustainability."
+        )
+
+    story.append(Paragraph("Management Summary", heading_style))
+    story.append(Paragraph(management_summary, styles['Normal']))
+    story.append(Spacer(1, 4*mm))
+
+    story.append(Paragraph("Headline KPIs", heading_style))
+    kpi_table = [
+        ["Cumulative Gap (4-year)", f"£{total_gap:.1f}m ({gap_pct:.1f}% of budget)"],
+        ["Savings Required", f"{savings_pct:.2f}% of annual budget"],
+        ["Financial Sustainability (RAG)", rag],
+        ["Final Reserves (Year 5)", f"£{final_reserves:.1f}m"],
+    ]
+    table = Table(kpi_table, colWidths=[70*mm, 90*mm])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#c9c9c9')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(table)
+
+    if reserves_policy:
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph("Reserves Policy", heading_style))
+        policy_text = (
+            f"Minimum {reserves_policy.min_pct}% • "
+            f"Target {reserves_policy.target_pct}% • "
+            f"Maximum {reserves_policy.max_pct}%"
+        )
+        story.append(Paragraph(policy_text, styles['Normal']))
+
+    if risk_appetite_statement:
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph("Risk Appetite Statement", heading_style))
+        story.append(Paragraph(risk_appetite_statement, styles['Normal']))
+
+    doc.build(story)
     return os.path.abspath(output_path)

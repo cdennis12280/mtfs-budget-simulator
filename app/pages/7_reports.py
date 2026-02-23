@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'modules'))
 
 from scenarios import Scenarios
-from report import generate_mtfs_statutory_report
+from report import generate_mtfs_statutory_report, generate_executive_summary_pdf
 from export_bi import generate_excel_export, generate_power_bi_template
 from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
@@ -251,7 +251,63 @@ with col1:
     )
 
 with col2:
-    st.markdown("")  # spacing
+    summary_btn = st.button(
+        "🧾 Executive Summary",
+        use_container_width=True,
+        disabled=not exports_enabled
+    )
+
+if summary_btn:
+    try:
+        with st.spinner("📝 Generating executive summary..."):
+            temp_dir = tempfile.gettempdir()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            summary_filename = f"MTFS_Executive_Summary_{timestamp}.pdf"
+            output_path = os.path.join(temp_dir, summary_filename)
+
+            base_scenario_name = list(scenarios_data.keys())[0]
+            base_data = scenarios_data[base_scenario_name]
+
+            reserves_policy = None
+            if include_reserves_policy:
+                min_pct = st.session_state.get('reserves_policy_min', 5)
+                target_pct = st.session_state.get('reserves_policy_target', 10)
+                max_pct = st.session_state.get('reserves_policy_max', 25)
+                reserves_policy = ReservesPolicy(
+                    min_pct=min_pct,
+                    target_pct=target_pct,
+                    max_pct=max_pct,
+                    policy_name="Standard S151 Thresholds"
+                )
+
+            summary_path = generate_executive_summary_pdf(
+                output_path=output_path,
+                council_name=council_name,
+                report_date=str(report_date),
+                base_data=base_data,
+                base_budget=base_budget,
+                reserves_policy=reserves_policy,
+                risk_appetite_statement=st.session_state.get("risk_appetite_statement"),
+                management_summary=st.session_state.get("management_summary")
+            )
+
+            with open(summary_path, 'rb') as f:
+                summary_bytes = f.read()
+
+            st.success("✅ Executive summary ready!")
+            st.download_button(
+                label="📥 Download Executive Summary",
+                data=summary_bytes,
+                file_name=summary_filename,
+                mime="application/pdf",
+                use_container_width=True
+            )
+            try:
+                os.remove(summary_path)
+            except Exception:
+                pass
+    except Exception as e:
+        st.error(f"❌ Failed to generate executive summary: {e}")
 
 if generate_btn:
     try:
@@ -317,9 +373,9 @@ if generate_btn:
             # Load reserves policy if needed
             reserves_policy = None
             if include_reserves_policy:
-                min_pct = st.session_state.get('min_reserves_pct', 5)
-                target_pct = st.session_state.get('target_reserves_pct', 10)
-                max_pct = st.session_state.get('max_reserves_pct', 25)
+                min_pct = st.session_state.get('reserves_policy_min', 5)
+                target_pct = st.session_state.get('reserves_policy_target', 10)
+                max_pct = st.session_state.get('reserves_policy_max', 25)
                 reserves_policy = ReservesPolicy(
                     min_pct=min_pct,
                     target_pct=target_pct,
@@ -335,7 +391,9 @@ if generate_btn:
                 scenarios_data=scenarios_data,
                 base_budget=base_budget,
                 reserves_policy=reserves_policy,
-                risk_summary=risk_summary
+                risk_summary=risk_summary,
+                risk_appetite_statement=st.session_state.get("risk_appetite_statement"),
+                management_summary=st.session_state.get("management_summary")
             )
             
             # Log export to audit trail

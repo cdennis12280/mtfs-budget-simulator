@@ -31,6 +31,7 @@ from reserves_policy import ReservesPolicy, ReservesPolicyChecker
 from risk_advisor import load_risk_register, build_stress_table
 from snapshots import add_snapshot, load_snapshots
 from ui import apply_theme, page_header, app_link
+from billing import plan_label
 from auth import require_auth, require_roles, auth_sidebar
 
 
@@ -51,6 +52,19 @@ apply_theme()
 if not require_auth():
     st.stop()
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: inputs and save actions are disabled.")
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### Session Status")
+    st.caption(f"Role: {st.session_state.get('auth_role', 'Unknown')}")
+    st.caption(f"Plan: {plan_label()}")
+    st.caption(
+        "Persistence: Enabled"
+        if os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
+        else "Persistence: Session-only"
+    )
 
 # Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""
@@ -106,6 +120,34 @@ st.markdown("""
         background: color-mix(in srgb, var(--accent) 10%, white);
     }
     .nav-link:hover { text-decoration: none; filter: brightness(0.98); }
+    .role-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: color-mix(in srgb, var(--accent) 12%, white);
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        color: var(--accent);
+    }
+    .demo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: rgba(217, 119, 6, 0.12);
+        border: 1px solid rgba(217, 119, 6, 0.35);
+        color: #b45309;
+    }
 
     .s151-strip {
         margin-top: 14px;
@@ -164,13 +206,15 @@ st.markdown("""
 # Custom non-collapsible header (professional site banner)
 council_name = st.session_state.get("council_name", "").strip()
 header_title = council_name if council_name else "MTFS Budget Gap Simulator"
+role_badge = "<span class='role-badge'>Read-Only</span>" if read_only else ""
+demo_badge = "<span class='demo-badge'>Demo Mode</span>" if st.session_state.get("demo_mode", False) else ""
 st.markdown("""
 <div class='topbar'>
     <div class='topbar-inner'>
         <div style='display:flex; align-items:center; gap:12px;'>
             <div class='brand-mark'>MTFS</div>
             <div>
-                <div class='brand-title'>{header_title}</div>
+                <div class='brand-title'>{header_title} {role_badge} {demo_badge}</div>
                 <div class='brand-subtitle'>Decision-support for Section 151 Officers — v1.0</div>
             </div>
         </div>
@@ -212,7 +256,9 @@ st.markdown("""
 def load_base_data():
     if 'base_data' in st.session_state:
         return st.session_state['base_data'].copy()
-    data_path = Path(__file__).parent.parent / 'data' / 'base_financials.csv'
+    demo_mode = st.session_state.get("demo_mode", False)
+    filename = 'demo_financials.csv' if demo_mode else 'base_financials.csv'
+    data_path = Path(__file__).parent.parent / 'data' / filename
     return pd.read_csv(data_path)
 
 
@@ -246,7 +292,8 @@ with st.sidebar:
         max_value=5.0,
         value=2.0,
         step=0.5,
-        help=get_help('council_tax_increase')
+        help=get_help('council_tax_increase'),
+        disabled=read_only
     )
     
     business_rates_growth = st.slider(
@@ -255,7 +302,8 @@ with st.sidebar:
         max_value=3.0,
         value=-1.0,
         step=0.5,
-        help=get_help('business_rates_growth')
+        help=get_help('business_rates_growth'),
+        disabled=read_only
     )
     
     grant_change = st.slider(
@@ -264,7 +312,8 @@ with st.sidebar:
         max_value=2.0,
         value=-2.0,
         step=0.5,
-        help=get_help('grant_change')
+        help=get_help('grant_change'),
+        disabled=read_only
     )
     
     fees_charges_growth = st.slider(
@@ -273,7 +322,8 @@ with st.sidebar:
         max_value=6.0,
         value=3.0,
         step=0.5,
-        help=get_help('fees_charges_growth')
+        help=get_help('fees_charges_growth'),
+        disabled=read_only
     )
     
     st.markdown("### Expenditure Assumptions")
@@ -284,7 +334,8 @@ with st.sidebar:
         max_value=8.0,
         value=3.5,
         step=0.5,
-        help=get_help('pay_award')
+        help=get_help('pay_award'),
+        disabled=read_only
     )
     
     general_inflation = st.slider(
@@ -293,7 +344,8 @@ with st.sidebar:
         max_value=6.0,
         value=2.0,
         step=0.5,
-        help=get_help('general_inflation')
+        help=get_help('general_inflation'),
+        disabled=read_only
     )
     
     asc_demand_growth = st.slider(
@@ -302,7 +354,8 @@ with st.sidebar:
         max_value=10.0,
         value=4.0,
         step=0.5,
-        help=get_help('asc_demand_growth')
+        help=get_help('asc_demand_growth'),
+        disabled=read_only
     )
     
     csc_demand_growth = st.slider(
@@ -311,7 +364,8 @@ with st.sidebar:
         max_value=8.0,
         value=3.0,
         step=0.5,
-        help=get_help('csc_demand_growth')
+        help=get_help('csc_demand_growth'),
+        disabled=read_only
     )
     
     st.markdown("### Policy Decisions")
@@ -322,7 +376,8 @@ with st.sidebar:
         max_value=5.0,
         value=2.0,
         step=0.25,
-        help=get_help('savings_target')
+        help=get_help('savings_target'),
+        disabled=read_only
     )
     
     use_of_reserves = st.slider(
@@ -331,13 +386,15 @@ with st.sidebar:
         max_value=100.0,
         value=50.0,
         step=10.0,
-        help=get_help('use_of_reserves')
+        help=get_help('use_of_reserves'),
+        disabled=read_only
     )
     
     protect_social_care = st.checkbox(
         "🛡️ Protect Social Care Services",
         value=False,
-        help=get_help('protect_social_care')
+        help=get_help('protect_social_care'),
+        disabled=read_only
     )
     
     st.markdown("---")
@@ -346,24 +403,28 @@ with st.sidebar:
     st.markdown("### Quick Scenarios")
     col1, col2, col3 = st.columns(3)
     
-    if col1.button("📊 Base Case", use_container_width=True):
+    if col1.button("📊 Base Case", use_container_width=True, disabled=read_only):
         scenario = Scenarios.get_base_case()
         st.session_state.update({k: v for k, v in scenario.items()})
         st.rerun()
     
-    if col2.button("📈 Optimistic", use_container_width=True):
+    if col2.button("📈 Optimistic", use_container_width=True, disabled=read_only):
         scenario = Scenarios.get_optimistic_case()
         st.session_state.update({k: v for k, v in scenario.items()})
         st.rerun()
     
-    if col3.button("📉 Pessimistic", use_container_width=True):
+    if col3.button("📉 Pessimistic", use_container_width=True, disabled=read_only):
         scenario = Scenarios.get_pessimistic_case()
         st.session_state.update({k: v for k, v in scenario.items()})
         st.rerun()
 
     st.markdown("---")
     st.markdown("### Savings Register")
-    savings_register_file = st.file_uploader("Upload Savings Register CSV (optional)", type=['csv'])
+    savings_register_file = st.file_uploader(
+        "Upload Savings Register CSV (optional)",
+        type=['csv'],
+        disabled=read_only
+    )
     if savings_register_file is not None:
         try:
             savings_df = pd.read_csv(savings_register_file)
@@ -396,9 +457,33 @@ projection_df = calculator.project_mtfs(
 # === Phase 2 Feature: Savings Strategy Builder ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Savings Strategy Builder")
-s_transformation = st.sidebar.slider("Transformation (% of savings)", 0.0, 100.0, 50.0, 5.0, help=get_help('savings_transformation'))
-s_income = st.sidebar.slider("Income Generation (% of savings)", 0.0, 100.0, 30.0, 5.0, help=get_help('savings_income'))
-s_demand = st.sidebar.slider("Demand Management (% of savings)", 0.0, 100.0, 20.0, 5.0, help=get_help('savings_demand'))
+s_transformation = st.sidebar.slider(
+    "Transformation (% of savings)",
+    0.0,
+    100.0,
+    50.0,
+    5.0,
+    help=get_help('savings_transformation'),
+    disabled=read_only
+)
+s_income = st.sidebar.slider(
+    "Income Generation (% of savings)",
+    0.0,
+    100.0,
+    30.0,
+    5.0,
+    help=get_help('savings_income'),
+    disabled=read_only
+)
+s_demand = st.sidebar.slider(
+    "Demand Management (% of savings)",
+    0.0,
+    100.0,
+    20.0,
+    5.0,
+    help=get_help('savings_demand'),
+    disabled=read_only
+)
 # normalize if sum != 100
 s_total = s_transformation + s_income + s_demand
 if s_total == 0:
@@ -432,7 +517,13 @@ proj['Closing_Reserves_Strategy'] = opening_reserves - proj['Annual_Budget_Gap_S
 # === Council Tax Sensitivity Tool ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Council Tax Sensitivity")
-num_households = st.sidebar.number_input("Number of households (for per-household impact)", min_value=1, value=100000, help=get_help('council_tax_per_household'))
+num_households = st.sidebar.number_input(
+    "Number of households (for per-household impact)",
+    min_value=1,
+    value=100000,
+    help=get_help('council_tax_per_household'),
+    disabled=read_only
+)
 one_pct_impact = base_budget_year1 * 0.01
 per_household = one_pct_impact * 1e6 / num_households if base_budget_year1 > 0 else 0.0
 st.sidebar.write(f"1% council tax ≈ £{one_pct_impact:.2f}m total — £{per_household:.2f} per household")
@@ -440,7 +531,11 @@ st.sidebar.write(f"1% council tax ≈ £{one_pct_impact:.2f}m total — £{per_h
 # === Departmental Drill-Down ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Departmental Drill-Down")
-dept_file = st.sidebar.file_uploader("Upload departmental budget CSV (optional)", type=['csv'])
+dept_file = st.sidebar.file_uploader(
+    "Upload departmental budget CSV (optional)",
+    type=['csv'],
+    disabled=read_only
+)
 if dept_file is not None:
     try:
         dept_df = pd.read_csv(dept_file)
@@ -462,9 +557,28 @@ dept_df['Projected_Expenditure'] = dept_df['Base_Expenditure'] * (1 + general_in
 # === Stochastic modelling ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Stochastic (Monte Carlo)")
-enable_stochastic = st.sidebar.checkbox("Enable stochastic modelling", value=False, help=get_help('monte_carlo'))
-stochastic_runs = st.sidebar.number_input("Monte Carlo runs", min_value=100, max_value=5000, value=500, step=100)
-stochastic_std_pct = st.sidebar.slider("Std dev for assumptions (% of value)", 0.1, 10.0, 2.0, help=get_help('stochastic_std'))
+enable_stochastic = st.sidebar.checkbox(
+    "Enable stochastic modelling",
+    value=False,
+    help=get_help('monte_carlo'),
+    disabled=read_only
+)
+stochastic_runs = st.sidebar.number_input(
+    "Monte Carlo runs",
+    min_value=100,
+    max_value=5000,
+    value=500,
+    step=100,
+    disabled=read_only
+)
+stochastic_std_pct = st.sidebar.slider(
+    "Std dev for assumptions (% of value)",
+    0.1,
+    10.0,
+    2.0,
+    help=get_help('stochastic_std'),
+    disabled=read_only
+)
 
 stochastic_results = None
 if enable_stochastic:
@@ -493,7 +607,8 @@ st.sidebar.markdown("### Stress Test Presets")
 severity = st.sidebar.selectbox(
     "Preset severity",
     options=["Mild", "Moderate", "Severe"],
-    index=1
+    index=1,
+    disabled=read_only
 )
 
 severity_scale = {
@@ -520,7 +635,7 @@ stress_presets = {
 }
 
 for preset_name, deltas in stress_presets.items():
-    if st.sidebar.button(f"Apply {preset_name}"):
+    if st.sidebar.button(f"Apply {preset_name}", disabled=read_only):
         for key, delta in deltas.items():
             old_val = st.session_state.get(key)
             if old_val is None:
@@ -537,7 +652,7 @@ for preset_name, deltas in stress_presets.items():
         st.sidebar.success(f"{preset_name} applied.")
 
 # === Scenario Bookmarking (Session Only) ===
-if st.sidebar.button('Save Current Scenario'):
+if st.sidebar.button('Save Current Scenario', disabled=read_only):
     scenario_name = f"Custom {pd.Timestamp.now().strftime('%Y%m%d%H%M%S')}"
     scenario_data = {
         'name': scenario_name,
@@ -570,7 +685,11 @@ if st.sidebar.button('Save Current Scenario'):
 saved = st.session_state.get('saved_scenarios', [])
 
 if saved:
-    chosen = st.sidebar.selectbox('Load saved scenario', ['-- none --'] + [s['name'] for s in saved])
+    chosen = st.sidebar.selectbox(
+        'Load saved scenario',
+        ['-- none --'] + [s['name'] for s in saved],
+        disabled=read_only
+    )
     if chosen and chosen != '-- none --':
         sel = next(s for s in saved if s['name'] == chosen)
         params = sel['params']
@@ -605,8 +724,8 @@ rag_rating, rag_reasoning = RAGRating.get_rating(
 snapshot_file = Path(__file__).parent.parent / '.forecast_snapshots.json'
 st.sidebar.markdown("---")
 st.sidebar.markdown("### Forecast Snapshots")
-snapshot_name = st.sidebar.text_input("Snapshot name", value="Rolling Forecast")
-snapshot_notes = st.sidebar.text_area("Notes", value="", height=80)
+snapshot_name = st.sidebar.text_input("Snapshot name", value="Rolling Forecast", disabled=read_only)
+snapshot_notes = st.sidebar.text_area("Notes", value="", height=80, disabled=read_only)
 
 assumptions_payload = {
     'council_tax_increase_pct': council_tax_increase,
@@ -622,7 +741,7 @@ assumptions_payload = {
     'protect_social_care': protect_social_care,
 }
 
-if st.sidebar.button("Save Snapshot"):
+if st.sidebar.button("Save Snapshot", disabled=read_only):
     entry = add_snapshot(
         path=None,
         name=snapshot_name,
@@ -645,10 +764,14 @@ if snapshots:
         f"{s.get('name', 'Snapshot')} v{s.get('version', 1)} ({s.get('timestamp', '')[:10]})"
         for s in snapshots
     ]
-    selected_idx = st.sidebar.selectbox("Load snapshot", ['-- none --'] + options)
+    selected_idx = st.sidebar.selectbox(
+        "Load snapshot",
+        ['-- none --'] + options,
+        disabled=read_only
+    )
     if selected_idx != '-- none --':
         sel = snapshots[options.index(selected_idx)]
-        if st.sidebar.button("Apply snapshot assumptions"):
+        if st.sidebar.button("Apply snapshot assumptions", disabled=read_only):
             for key, val in sel.get('assumptions', {}).items():
                 st.session_state[key] = val
             audit.log_entry(
@@ -673,9 +796,27 @@ policy_check = policy_checker.check_forecast(projection_df, base_budget_year1)
 # === S151 Persona: Global risk overrides ===
 st.sidebar.markdown("---")
 st.sidebar.markdown("### S151 Override (Global Risk Parameters)")
-override_pwlb = st.sidebar.number_input("Assume PWLB interest rate (%)", value=4.5, step=0.1, help=get_help('pwlb_rate'))
-override_reserve_floor = st.sidebar.number_input("Reserve floor (£m)", value=10.0, step=1.0)
-override_investment_threshold = st.sidebar.slider("Max capital exposure (% of budget) before RED", 1.0, 20.0, 5.0, 1.0)
+override_pwlb = st.sidebar.number_input(
+    "Assume PWLB interest rate (%)",
+    value=4.5,
+    step=0.1,
+    help=get_help('pwlb_rate'),
+    disabled=read_only
+)
+override_reserve_floor = st.sidebar.number_input(
+    "Reserve floor (£m)",
+    value=10.0,
+    step=1.0,
+    disabled=read_only
+)
+override_investment_threshold = st.sidebar.slider(
+    "Max capital exposure (% of budget) before RED",
+    1.0,
+    20.0,
+    5.0,
+    1.0,
+    disabled=read_only
+)
 
 # Sample commercial projects
 projA = CommercialProject(name='Commercial Property A', capital_cost=30.0, annual_income_target=2.0, life_years=40, operating_costs=0.2, capital_receipt=0.0)
@@ -894,6 +1035,40 @@ st.markdown("---")
 # ============================================================================
 # SECTION 2: BUDGET GAP TRAJECTORY
 # ============================================================================
+
+st.markdown("## Scenario Story: Base vs Pessimistic")
+base_proj = projection_df
+base_gap = base_proj['Annual_Budget_Gap'].sum()
+base_reserves = base_proj.iloc[-1]['Closing_Reserves']
+
+pess = Scenarios.get_pessimistic_case()
+pess_proj = calculator.project_mtfs(
+    council_tax_increase_pct=pess['council_tax_increase_pct'],
+    business_rates_growth_pct=pess['business_rates_growth_pct'],
+    grant_change_pct=pess['grant_change_pct'],
+    fees_charges_growth_pct=pess['fees_charges_growth_pct'],
+    pay_award_pct=pess['pay_award_pct'],
+    general_inflation_pct=pess['general_inflation_pct'],
+    asc_demand_growth_pct=pess['asc_demand_growth_pct'],
+    csc_demand_growth_pct=pess['csc_demand_growth_pct'],
+    annual_savings_target_pct=pess['annual_savings_target_pct'],
+    use_of_reserves_pct=pess['use_of_reserves_pct'],
+    protect_social_care=pess['protect_social_care'],
+)
+pess_gap = pess_proj['Annual_Budget_Gap'].sum()
+pess_reserves = pess_proj.iloc[-1]['Closing_Reserves']
+pess_final_reserves_pct = (pess_reserves / base_budget_year1) * 100 if base_budget_year1 else 0
+pess_rag, _ = RAGRating.get_rating(pess_proj, base_budget_year1, pess_final_reserves_pct)
+
+story_col1, story_col2, story_col3 = st.columns(3)
+with story_col1:
+    st.metric("Base gap (£m)", f"{base_gap:.1f}", delta="Current assumptions")
+with story_col2:
+    st.metric("Pessimistic gap (£m)", f"{pess_gap:.1f}", delta=f"+£{(pess_gap - base_gap):.1f}m vs base")
+with story_col3:
+    st.metric("Pessimistic RAG", pess_rag, delta=f"Final reserves £{pess_reserves:.1f}m")
+
+st.caption("Use this story to explain downside exposure during leadership briefings.")
 
 st.markdown("## Budget Gap by Year")
 

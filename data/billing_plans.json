@@ -1,0 +1,5 @@
+{
+  "community": { "label": "Community", "features": ["view"] },
+  "governance": { "label": "Governance", "features": ["view", "exports", "audit"] },
+  "enterprise": { "label": "Enterprise", "features": ["view", "exports", "audit", "sso", "multi_tenant"] }
+}

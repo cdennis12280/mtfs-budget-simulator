@@ -42,6 +42,27 @@ theme = st.selectbox(
 )
 st.session_state["theme"] = theme
 
+# Demo Mode
+st.markdown("## Demo Mode")
+demo_mode = st.checkbox(
+    "Enable demo dataset",
+    value=st.session_state.get("demo_mode", False),
+    help="Loads a curated, council-like dataset for demos. Clears in-session inputs."
+)
+if demo_mode != st.session_state.get("demo_mode", False):
+    st.session_state["demo_mode"] = demo_mode
+    st.session_state.pop("base_data", None)
+    st.session_state.pop("inputs_df", None)
+    st.session_state.pop("base_budget", None)
+    st.session_state.pop("opening_reserves", None)
+
+if st.button("Reset demo data", disabled=not st.session_state.get("demo_mode", False)):
+    st.session_state.pop("base_data", None)
+    st.session_state.pop("inputs_df", None)
+    st.session_state.pop("base_budget", None)
+    st.session_state.pop("opening_reserves", None)
+    st.success("Demo data reset for this session.")
+
 # Billing Status
 st.markdown("## Billing")
 st.info(f"Plan: {plan_label()}")
@@ -167,6 +188,29 @@ include_assumptions = st.checkbox(
     value=st.session_state.get('include_assumptions', True)
 )
 st.session_state['include_assumptions'] = include_assumptions
+
+st.markdown("## Governance Narrative")
+risk_appetite_statement = st.text_area(
+    "Risk Appetite Statement (PDFs)",
+    value=st.session_state.get(
+        "risk_appetite_statement",
+        "The Council maintains a low-to-moderate risk appetite for recurrent funding gaps "
+        "and expects all scenarios to protect minimum reserves thresholds."
+    ),
+    height=90
+)
+st.session_state["risk_appetite_statement"] = risk_appetite_statement
+
+management_summary = st.text_area(
+    "Management Summary (PDFs)",
+    value=st.session_state.get(
+        "management_summary",
+        "This report provides a clear, decision-ready view of the medium-term funding gap, "
+        "reserves trajectory, and actions required to maintain financial sustainability."
+    ),
+    height=110
+)
+st.session_state["management_summary"] = management_summary
 
 st.markdown("---")
 

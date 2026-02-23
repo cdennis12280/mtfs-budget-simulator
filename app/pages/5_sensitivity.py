@@ -21,8 +21,11 @@ from auth import require_auth, require_roles, auth_sidebar
 apply_theme()
 if not require_auth():
     st.stop()
-require_roles({"Admin", "Analyst"})
+require_roles({"Admin", "Analyst", "Read-only"})
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: controls are disabled.")
 page_header("Sensitivity Analysis", "Test how robust the MTFS is to changes in key assumptions.")
 st.markdown("""
 <div class="app-callout">
@@ -67,11 +70,12 @@ with col1:
         max_value=50,
         value=10,
         step=1,
-        help="How much to vary each assumption (e.g., ±10% = if pay is 3.5%, test 3.15% and 3.85%)."
+        help="How much to vary each assumption (e.g., ±10% = if pay is 3.5%, test 3.15% and 3.85%).",
+        disabled=read_only
     )
 
 with col2:
-    run_analysis = st.button("🔄 Run Sensitivity Analysis")
+    run_analysis = st.button("🔄 Run Sensitivity Analysis", disabled=read_only)
 
 st.markdown("---")
 

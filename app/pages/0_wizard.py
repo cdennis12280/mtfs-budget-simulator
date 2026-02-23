@@ -20,8 +20,11 @@ import plotly.graph_objects as go
 apply_theme()
 if not require_auth():
     st.stop()
-require_roles({"Admin", "Analyst"})
+require_roles({"Admin", "Analyst", "Read-only"})
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: wizard inputs are disabled.")
 page_header("MTFS Guided Wizard", "A step-by-step flow for Section 151 budget setting and reporting.")
 
 st.markdown("""
@@ -44,7 +47,9 @@ step = st.radio("Wizard step", options=steps, horizontal=True)
 def get_base_data():
     if 'base_data' in st.session_state:
         return st.session_state['base_data'].copy()
-    return pd.read_csv(Path(__file__).parent.parent.parent / 'data' / 'base_financials.csv')
+    demo_mode = st.session_state.get("demo_mode", False)
+    filename = 'demo_financials.csv' if demo_mode else 'base_financials.csv'
+    return pd.read_csv(Path(__file__).parent.parent.parent / 'data' / filename)
 
 def build_params():
     return {
@@ -118,14 +123,17 @@ if step == "1. Council Profile":
     st.markdown("### Council Profile")
     council_name = st.text_input(
         "Council name",
-        value=st.session_state.get('council_name', 'Example Council')
+        value=st.session_state.get('council_name', 'Example Council'),
+        disabled=read_only
     )
     council_colour = st.color_picker(
         "Primary brand color",
-        value=st.session_state.get('council_colour', '#0b3d91')
+        value=st.session_state.get('council_colour', '#0b3d91'),
+        disabled=read_only
     )
-    st.session_state['council_name'] = council_name
-    st.session_state['council_colour'] = council_colour
+    if not read_only:
+        st.session_state['council_name'] = council_name
+        st.session_state['council_colour'] = council_colour
 
     st.info("Dark theme is enforced for all users.")
 
@@ -144,13 +152,15 @@ if step == "2. Baseline Inputs":
             "Year 1 net revenue budget (£m)",
             min_value=0.0,
             value=float(st.session_state.get('base_budget', 250.0)),
-            step=1.0
+            step=1.0,
+            disabled=read_only
         )
         st.session_state['opening_reserves'] = st.number_input(
             "Opening reserves (£m)",
             min_value=0.0,
             value=float(st.session_state.get('opening_reserves', 40.0)),
-            step=1.0
+            step=1.0,
+            disabled=read_only
         )
     with col2:
         st.markdown("Need detailed line items?")
@@ -159,13 +169,14 @@ if step == "2. Baseline Inputs":
     st.info("Values apply immediately. Update detailed line items in Inputs if needed.")
 
     # Reflect baseline into in-session base_data for model use
-    try:
-        base_data = get_base_data()
-        base_data.loc[base_data['Year'] == 'Year_1', 'Net_Revenue_Budget'] = float(st.session_state['base_budget'])
-        base_data.loc[base_data['Year'] == 'Year_1', 'Opening_Reserves'] = float(st.session_state['opening_reserves'])
-        st.session_state['base_data'] = base_data
-    except Exception:
-        pass
+    if not read_only:
+        try:
+            base_data = get_base_data()
+            base_data.loc[base_data['Year'] == 'Year_1', 'Net_Revenue_Budget'] = float(st.session_state['base_budget'])
+            base_data.loc[base_data['Year'] == 'Year_1', 'Opening_Reserves'] = float(st.session_state['opening_reserves'])
+            st.session_state['base_data'] = base_data
+        except Exception:
+            pass
 
     proj, kpis = live_kpis()
     st.markdown("### Live Impact")
@@ -179,41 +190,50 @@ if step == "3. Core Assumptions":
     with col1:
         st.session_state['council_tax_increase_pct'] = st.slider(
             "Council tax increase (%)",
-            0.0, 5.0, float(st.session_state.get('council_tax_increase_pct', 2.0)), 0.1
+            0.0, 5.0, float(st.session_state.get('council_tax_increase_pct', 2.0)), 0.1,
+            disabled=read_only
         )
         st.session_state['business_rates_growth_pct'] = st.slider(
             "Business rates growth (%)",
-            -5.0, 5.0, float(st.session_state.get('business_rates_growth_pct', -1.0)), 0.1
+            -5.0, 5.0, float(st.session_state.get('business_rates_growth_pct', -1.0)), 0.1,
+            disabled=read_only
         )
         st.session_state['grant_change_pct'] = st.slider(
             "Grant change (%)",
-            -10.0, 5.0, float(st.session_state.get('grant_change_pct', -2.0)), 0.1
+            -10.0, 5.0, float(st.session_state.get('grant_change_pct', -2.0)), 0.1,
+            disabled=read_only
         )
     with col2:
         st.session_state['pay_award_pct'] = st.slider(
             "Pay award (%)",
-            0.0, 8.0, float(st.session_state.get('pay_award_pct', 3.5)), 0.1
+            0.0, 8.0, float(st.session_state.get('pay_award_pct', 3.5)), 0.1,
+            disabled=read_only
         )
         st.session_state['general_inflation_pct'] = st.slider(
             "General inflation (%)",
-            0.0, 8.0, float(st.session_state.get('general_inflation_pct', 2.0)), 0.1
+            0.0, 8.0, float(st.session_state.get('general_inflation_pct', 2.0)), 0.1,
+            disabled=read_only
         )
         st.session_state['annual_savings_target_pct'] = st.slider(
             "Annual savings target (%)",
-            0.0, 6.0, float(st.session_state.get('annual_savings_target_pct', 2.0)), 0.1
+            0.0, 6.0, float(st.session_state.get('annual_savings_target_pct', 2.0)), 0.1,
+            disabled=read_only
         )
     with col3:
         st.session_state['asc_demand_growth_pct'] = st.slider(
             "ASC demand growth (%)",
-            0.0, 10.0, float(st.session_state.get('asc_demand_growth_pct', 4.0)), 0.1
+            0.0, 10.0, float(st.session_state.get('asc_demand_growth_pct', 4.0)), 0.1,
+            disabled=read_only
         )
         st.session_state['csc_demand_growth_pct'] = st.slider(
             "CSC demand growth (%)",
-            0.0, 10.0, float(st.session_state.get('csc_demand_growth_pct', 3.0)), 0.1
+            0.0, 10.0, float(st.session_state.get('csc_demand_growth_pct', 3.0)), 0.1,
+            disabled=read_only
         )
         st.session_state['use_of_reserves_pct'] = st.slider(
             "Use of reserves (% of gap)",
-            0.0, 100.0, float(st.session_state.get('use_of_reserves_pct', 50.0)), 1.0
+            0.0, 100.0, float(st.session_state.get('use_of_reserves_pct', 50.0)), 1.0,
+            disabled=read_only
         )
 
     st.info("These values apply immediately. See live impact below.")
@@ -247,9 +267,9 @@ if step == "4. Risk Stressing":
 # Step 5: Governance snapshot
 if step == "5. Governance Snapshot":
     st.markdown("### Governance Snapshot")
-    snapshot_name = st.text_input("Snapshot name", value="Budget Setting - Draft")
-    snapshot_notes = st.text_area("Notes", value="", height=100)
-    if st.button("Save snapshot"):
+    snapshot_name = st.text_input("Snapshot name", value="Budget Setting - Draft", disabled=read_only)
+    snapshot_notes = st.text_area("Notes", value="", height=100, disabled=read_only)
+    if st.button("Save snapshot", disabled=read_only):
         assumptions = {
             'council_tax_increase_pct': st.session_state.get('council_tax_increase_pct', 2.0),
             'business_rates_growth_pct': st.session_state.get('business_rates_growth_pct', -1.0),

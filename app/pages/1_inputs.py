@@ -12,8 +12,11 @@ from auth import require_auth, require_roles, auth_sidebar
 apply_theme()
 if not require_auth():
     st.stop()
-require_roles({"Admin", "Analyst"})
+require_roles({"Admin", "Analyst", "Read-only"})
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: input editing is disabled.")
 page_header(
     "Inputs - Budget and Line Items",
     "Upload or edit the authoritative inputs for the MTFS model."
@@ -25,7 +28,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-upload = st.file_uploader('Upload Inputs CSV (columns: name,type,year,amount,department,notes)', type=['csv'])
+upload = st.file_uploader(
+    'Upload Inputs CSV (columns: name,type,year,amount,department,notes)',
+    type=['csv'],
+    disabled=read_only
+)
 
 def make_default_df():
     return pd.DataFrame([
@@ -46,7 +53,9 @@ if upload is not None:
 # Prefill from base_financials.csv when no upload and not already set
 if 'inputs_df' not in st.session_state and upload is None:
     try:
-        data_path = Path(__file__).parent.parent / 'data' / 'base_financials.csv'
+        demo_mode = st.session_state.get("demo_mode", False)
+        filename = 'demo_financials.csv' if demo_mode else 'base_financials.csv'
+        data_path = Path(__file__).parent.parent / 'data' / filename
         if data_path.exists():
             base = pd.read_csv(data_path)
             y1 = base[base['Year'] == 'Year_1'].iloc[0]
@@ -75,7 +84,7 @@ edited = None
 try:
     # prefer built-in data_editor when available
     if hasattr(st, 'data_editor'):
-        edited = st.data_editor(df, num_rows='dynamic')
+        edited = st.data_editor(df, num_rows='dynamic', disabled=read_only)
     else:
         # try st_aggrid fallback if installed
         from st_aggrid import AgGrid, GridOptionsBuilder
@@ -88,7 +97,7 @@ except Exception:
     st.warning('Editable grid not available — showing read-only table. You can still upload/download CSVs.')
     st.dataframe(df)
 
-if edited is not None:
+if edited is not None and not read_only:
     st.session_state['inputs_df'] = edited
     # Auto-apply edits to in-session model
     try:
@@ -145,7 +154,7 @@ if edited is not None:
 
 col1, col2 = st.columns([1,1])
 with col1:
-    if st.button('Apply to model'):
+    if st.button('Apply to model', disabled=read_only):
         inputs = st.session_state.get('inputs_df', df)
         # Map inputs into in-session base_data (no disk writes)
         try:

@@ -88,6 +88,9 @@
 4. Add link to Section 151 user guide from header or settings.
 5. Add input‑to‑model mapping for additional line items (if needed).
 
+## Deferred (Later)
+- Deploy a stable demo environment (hosted instance with auth, persistence, and data reset).
+
 ## Running the App
 
 ```bash

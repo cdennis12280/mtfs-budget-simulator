@@ -30,6 +30,9 @@ if not require_auth():
     st.stop()
 require_roles({"Admin", "Analyst", "Read-only"})
 auth_sidebar()
+read_only = st.session_state.get("auth_role") == "Read-only"
+if read_only:
+    st.info("Read-only mode: edits and stress applications are disabled.")
 page_header("Risk and Sensitivity Scenario Advisor", "Link the corporate risk register to model sensitivity and generate stress tests.")
 st.markdown("""
 <div class="app-callout">
@@ -86,6 +89,7 @@ edited = st.data_editor(
     risk_df,
     use_container_width=True,
     num_rows="dynamic",
+    disabled=read_only,
     column_config={
         'likelihood': st.column_config.NumberColumn(min_value=0, max_value=5, step=1),
         'impact': st.column_config.NumberColumn(min_value=0, max_value=5, step=1),
@@ -96,11 +100,11 @@ edited = st.data_editor(
 
 col_apply, col_reset, col_save = st.columns(3)
 with col_apply:
-    if st.button("Apply edits"):
+    if st.button("Apply edits", disabled=read_only):
         st.session_state['risk_register_df'] = normalize_risk_register(edited)
         st.success("Risk register updated for this session.")
 with col_reset:
-    if st.button("Reset to defaults"):
+    if st.button("Reset to defaults", disabled=read_only):
         st.session_state['risk_register_df'] = load_risk_register(risk_path)
         st.info("Risk register reset to defaults.")
 with col_save:
@@ -123,7 +127,8 @@ perturbation = st.slider(
     max_value=30,
     value=10,
     step=1,
-    help="Used to compute the tornado sensitivity range linked to each risk driver."
+    help="Used to compute the tornado sensitivity range linked to each risk driver.",
+    disabled=read_only
 )
 
 sens = SensitivityAnalysis(calc, base_data, base_budget_year1)
@@ -149,12 +154,13 @@ st.markdown("## Risk-Weighted Stress Tests")
 stress_override = st.selectbox(
     "Stress level",
     options=["Use register defaults", "Use risk score scale", "Custom %"],
-    index=0
+    index=0,
+    disabled=read_only
 )
 
 custom_stress = None
 if stress_override == "Custom %":
-    custom_stress = st.slider("Custom stress %", 1, 50, 15, 1)
+    custom_stress = st.slider("Custom stress %", 1, 50, 15, 1, disabled=read_only)
 
 stress_df = build_stress_table(
     calc,
@@ -189,7 +195,7 @@ st.dataframe(
 st.markdown("---")
 st.markdown("## Recommended Stress Scenarios")
 
-top_n = st.slider("Number of top risks to stress", 1, min(6, len(stress_df)), 3, 1)
+top_n = st.slider("Number of top risks to stress", 1, min(6, len(stress_df)), 3, 1, disabled=read_only)
 
 top_df = stress_df.head(top_n)
 
@@ -226,9 +232,9 @@ st.write(
 col_apply_single, col_apply_comp = st.columns(2)
 
 with col_apply_single:
-    selected_risk = st.selectbox("Apply single stress", options=stress_df['Risk'].tolist())
+    selected_risk = st.selectbox("Apply single stress", options=stress_df['Risk'].tolist(), disabled=read_only)
     selected_row = stress_df[stress_df['Risk'] == selected_risk].iloc[0]
-    if st.button("Apply selected stress to assumptions"):
+    if st.button("Apply selected stress to assumptions", disabled=read_only):
         key = selected_row['Driver Param']
         old = st.session_state.get(key)
         st.session_state[key] = float(selected_row['Stressed Value'])
@@ -244,7 +250,7 @@ with col_apply_single:
         st.success(f"Applied stress to {selected_row['Driver']}")
 
 with col_apply_comp:
-    if st.button("Apply composite stress to assumptions"):
+    if st.button("Apply composite stress to assumptions", disabled=read_only):
         audit = get_audit_log()
         for _, row in top_df.iterrows():
             key = row['Driver Param']
