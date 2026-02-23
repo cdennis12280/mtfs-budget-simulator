@@ -15,7 +15,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'modules'))
 
 from scenarios import Scenarios
-from report import generate_mtfs_statutory_report, generate_executive_summary_pdf
+from report import generate_mtfs_statutory_report, generate_executive_summary_pdf, generate_board_pack_pdf
 from export_bi import generate_excel_export, generate_power_bi_template
 from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
@@ -256,6 +256,17 @@ with col2:
         use_container_width=True,
         disabled=not exports_enabled
     )
+    board_btn = st.button(
+        "📘 Board Pack",
+        use_container_width=True,
+        disabled=not exports_enabled
+    )
+
+if st.session_state.get("last_report_name"):
+    st.info(
+        f"Last export: {st.session_state.get('last_report_name')} "
+        f"({st.session_state.get('last_report_timestamp', '')})"
+    )
 
 if summary_btn:
     try:
@@ -302,12 +313,117 @@ if summary_btn:
                 mime="application/pdf",
                 use_container_width=True
             )
+            st.session_state["last_report_name"] = summary_filename
+            st.session_state["last_report_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M")
             try:
                 os.remove(summary_path)
             except Exception:
                 pass
     except Exception as e:
         st.error(f"❌ Failed to generate executive summary: {e}")
+
+if board_btn:
+    try:
+        with st.spinner("📝 Generating board pack..."):
+            risk_summary = None
+            if include_risk_advisor:
+                base_data = get_base_data()
+                base_budget_year1 = base_data[base_data['Year'] == 'Year_1']['Net_Revenue_Budget'].values[0]
+
+                base_params = {
+                    'council_tax_increase_pct': st.session_state.get('council_tax_increase_pct', 2.0),
+                    'business_rates_growth_pct': st.session_state.get('business_rates_growth_pct', -1.0),
+                    'grant_change_pct': st.session_state.get('grant_change_pct', -2.0),
+                    'fees_charges_growth_pct': st.session_state.get('fees_charges_growth_pct', 3.0),
+                    'pay_award_pct': st.session_state.get('pay_award_pct', 3.5),
+                    'general_inflation_pct': st.session_state.get('general_inflation_pct', 2.0),
+                    'asc_demand_growth_pct': st.session_state.get('asc_demand_growth_pct', 4.0),
+                    'csc_demand_growth_pct': st.session_state.get('csc_demand_growth_pct', 3.0),
+                    'annual_savings_target_pct': st.session_state.get('annual_savings_target_pct', 2.0),
+                    'use_of_reserves_pct': st.session_state.get('use_of_reserves_pct', 50.0),
+                    'protect_social_care': st.session_state.get('protect_social_care', False),
+                }
+                valid_params = {
+                    'council_tax_increase_pct', 'business_rates_growth_pct', 'grant_change_pct',
+                    'fees_charges_growth_pct', 'pay_award_pct', 'general_inflation_pct',
+                    'asc_demand_growth_pct', 'csc_demand_growth_pct', 'annual_savings_target_pct',
+                    'use_of_reserves_pct', 'protect_social_care'
+                }
+                base_params = {k: v for k, v in base_params.items() if k in valid_params}
+
+                calc = MTFSCalculator(base_data)
+                sens = SensitivityAnalysis(calc, base_data, base_budget_year1)
+                sensitivity_df = sens.tornado_analysis(base_params, perturbation_pct=10.0)
+
+                risk_path = Path(__file__).parent.parent.parent / 'data' / 'risk_register.csv'
+                risk_df = load_risk_register(risk_path)
+                risk_df = merge_sensitivity(risk_df, sensitivity_df)
+
+                stress_df = build_stress_table(calc, base_params, risk_df)
+                if not stress_df.empty:
+                    top_df = stress_df.head(3)
+                    risk_summary = []
+                    for _, row in top_df.iterrows():
+                        action_text = SUGGESTED_ACTIONS.get(
+                            row.get('Driver Param', ''),
+                            "Review mitigation and contingency options."
+                        )
+                        risk_summary.append({
+                            'risk_title': row.get('Risk', ''),
+                            'driver': row.get('Driver', ''),
+                            'stress_pct': row.get('Stress %', 0),
+                            'gap_delta': row.get('Gap Delta (£m)', 0),
+                            'recommended_action': action_text,
+                        })
+
+            temp_dir = tempfile.gettempdir()
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            board_filename = f"MTFS_Board_Pack_{timestamp}.pdf"
+            output_path = os.path.join(temp_dir, board_filename)
+
+            reserves_policy = None
+            if include_reserves_policy:
+                min_pct = st.session_state.get('reserves_policy_min', 5)
+                target_pct = st.session_state.get('reserves_policy_target', 10)
+                max_pct = st.session_state.get('reserves_policy_max', 25)
+                reserves_policy = ReservesPolicy(
+                    min_pct=min_pct,
+                    target_pct=target_pct,
+                    max_pct=max_pct,
+                    policy_name="Standard S151 Thresholds"
+                )
+
+            board_path = generate_board_pack_pdf(
+                output_path=output_path,
+                council_name=council_name,
+                report_date=str(report_date),
+                scenarios_data=scenarios_data,
+                base_budget=base_budget,
+                reserves_policy=reserves_policy,
+                risk_summary=risk_summary,
+                risk_appetite_statement=st.session_state.get("risk_appetite_statement"),
+                management_summary=st.session_state.get("management_summary")
+            )
+
+            with open(board_path, 'rb') as f:
+                board_bytes = f.read()
+
+            st.success("✅ Board pack ready!")
+            st.download_button(
+                label="📥 Download Board Pack",
+                data=board_bytes,
+                file_name=board_filename,
+                mime="application/pdf",
+                use_container_width=True
+            )
+            st.session_state["last_report_name"] = board_filename
+            st.session_state["last_report_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            try:
+                os.remove(board_path)
+            except Exception:
+                pass
+    except Exception as e:
+        st.error(f"❌ Failed to generate board pack: {e}")
 
 if generate_btn:
     try:

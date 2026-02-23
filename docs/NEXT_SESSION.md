@@ -1,10 +1,25 @@
 # Next Session Checklist
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## Quick Context
 - Dark theme is enforced across the app.
 - Session-only storage: no disk writes, export-only persistence.
 - Session token sharing across tabs is implemented via `app_link()`.
 - Wizard is live and includes KPIs + charts.
+
+## Running Locally
+- `streamlit run app/main.py`
+- For auth + persistence, follow `docs/QUICK_START.md`.
+
+## Hosting
+- Use `docs/DEPLOYMENT.md` for production launch.
+- Enable `AUTH_MODE=password`, set `TENANT_DATA_DIR`, and `FERNET_KEY`.
+
+## Demo Mode
+- Enable in `Settings` to load demo dataset.
+- Use “Reset demo tenant” on the Dashboard for clean demos.
 
 ## Current Status
 - App deploy builds with Python 3.13.
@@ -26,4 +41,3 @@
 ## Deploy Notes
 - Streamlit Cloud uses Python 3.13.
 - Ensure dependencies remain 3.13 compatible.
-

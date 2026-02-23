@@ -1,5 +1,8 @@
 # Billing & Subscription Gating
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 Billing is modeled as a plan + feature flags per tenant. This provides governance control without blocking development.
 
 ## Plans

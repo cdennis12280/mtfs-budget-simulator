@@ -546,3 +546,166 @@ def generate_executive_summary_pdf(output_path, council_name, report_date, base_
 
     doc.build(story)
     return os.path.abspath(output_path)
+
+
+def generate_board_pack_pdf(output_path, council_name, report_date, scenarios_data, base_budget,
+                            reserves_policy=None, risk_summary=None,
+                            risk_appetite_statement=None, management_summary=None):
+    """
+    Generate a board-pack PDF combining executive summary + key tables for leadership.
+    """
+    doc = SimpleDocTemplate(output_path, pagesize=A4, topMargin=18*mm, bottomMargin=18*mm,
+                           leftMargin=18*mm, rightMargin=18*mm)
+    story = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'BoardTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#0b3d91'),
+        spaceAfter=6,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    heading_style = ParagraphStyle(
+        'BoardHeading',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#0b3d91'),
+        spaceAfter=4,
+        spaceBefore=6,
+        fontName='Helvetica-Bold'
+    )
+
+    base_scenario_name = list(scenarios_data.keys())[0]
+    base_data = scenarios_data[base_scenario_name]
+    kpis = base_data.get("kpis", {})
+    rag = base_data.get("rag", "AMBER")
+    projection = base_data.get("projection")
+
+    total_gap = kpis.get("total_4_year_gap", 0)
+    savings_pct = kpis.get("savings_required_pct", 0)
+    final_reserves = projection.iloc[-1]['Closing_Reserves'] if projection is not None else 0
+    gap_pct = (total_gap / base_budget * 100) if base_budget else 0
+
+    if not management_summary:
+        management_summary = (
+            "Board pack summarising the medium-term funding gap, reserves trajectory, and required actions."
+        )
+
+    story.append(Paragraph("MTFS BOARD PACK", title_style))
+    story.append(Paragraph(f"{council_name} — {report_date}", styles['Normal']))
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph("Management Summary", heading_style))
+    story.append(Paragraph(management_summary, styles['Normal']))
+
+    if risk_appetite_statement:
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph("Risk Appetite Statement", heading_style))
+        story.append(Paragraph(risk_appetite_statement, styles['Normal']))
+
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph("Headline KPIs", heading_style))
+    kpi_table = [
+        ["Cumulative Gap (4-year)", f"£{total_gap:.1f}m ({gap_pct:.1f}% of budget)"],
+        ["Savings Required", f"{savings_pct:.2f}% of annual budget"],
+        ["Financial Sustainability (RAG)", rag],
+        ["Final Reserves (Year 5)", f"£{final_reserves:.1f}m"],
+    ]
+    table = Table(kpi_table, colWidths=[70*mm, 90*mm])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#c9c9c9')),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(table)
+
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph("Scenario Comparison", heading_style))
+    scenario_table_data = [
+        ['Scenario', '4-Year Gap (£m)', 'Gap (% Budget)', 'Savings (% Bud)', 'Final Reserves', 'RAG']
+    ]
+    for scenario_name, scenario_info in scenarios_data.items():
+        scenario_kpis = scenario_info['kpis']
+        scenario_rag = scenario_info['rag']
+        final_reserves_s = scenario_info['projection'].iloc[-1]['Closing_Reserves']
+        scenario_gap = scenario_kpis.get('total_4_year_gap', 0)
+        scenario_savings = scenario_kpis.get('savings_required_pct', 0)
+        scenario_table_data.append([
+            scenario_name,
+            f"£{scenario_gap:.1f}",
+            f"{(scenario_gap / base_budget * 100):.1f}%",
+            f"{scenario_savings:.2f}%",
+            f"£{final_reserves_s:.1f}m",
+            scenario_rag
+        ])
+    scenario_table = Table(scenario_table_data, colWidths=[80, 75, 70, 70, 80, 55])
+    scenario_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0b3d91')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+    ]))
+    story.append(scenario_table)
+
+    if projection is not None:
+        story.append(Spacer(1, 6*mm))
+        story.append(Paragraph("Key Trend (Base Case)", heading_style))
+        trend_rows = [["Year", "Annual Gap (£m)", "Closing Reserves (£m)"]]
+        for _, row in projection.iterrows():
+            trend_rows.append([
+                str(row.get("Year", row.get("Year_Number", ""))),
+                f"{row.get('Annual_Budget_Gap', 0):.1f}",
+                f"{row.get('Closing_Reserves', 0):.1f}",
+            ])
+        trend_table = Table(trend_rows, colWidths=[40*mm, 60*mm, 60*mm])
+        trend_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#c9c9c9')),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+        ]))
+        story.append(trend_table)
+
+    if risk_summary:
+        story.append(Spacer(1, 6*mm))
+        story.append(Paragraph("Top Risks (Stress Summary)", heading_style))
+        risk_rows = [["Risk", "Driver", "Stress %", "Gap Delta (£m)", "Recommended Action"]]
+        for row in risk_summary:
+            risk_rows.append([
+                row.get("risk_title", ""),
+                row.get("driver", ""),
+                f"{row.get('stress_pct', 0):.0f}%",
+                f"{row.get('gap_delta', 0):.1f}",
+                row.get("recommended_action", ""),
+            ])
+        risk_table = Table(risk_rows, colWidths=[45*mm, 35*mm, 20*mm, 25*mm, 50*mm])
+        risk_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.whitesmoke),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#c9c9c9')),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(risk_table)
+
+    if reserves_policy:
+        story.append(Spacer(1, 4*mm))
+        story.append(Paragraph("Reserves Policy", heading_style))
+        policy_text = (
+            f"Minimum {reserves_policy.min_pct}% • "
+            f"Target {reserves_policy.target_pct}% • "
+            f"Maximum {reserves_policy.max_pct}%"
+        )
+        story.append(Paragraph(policy_text, styles['Normal']))
+
+    doc.build(story)
+    return os.path.abspath(output_path)

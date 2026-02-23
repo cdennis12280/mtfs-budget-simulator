@@ -66,6 +66,9 @@ Opens at: `http://localhost:8501`
 
 ---
 
+## Documentation
+- Docs index: `docs/README.md`
+
 ## Project Structure
 
 ```

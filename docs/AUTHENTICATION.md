@@ -1,5 +1,8 @@
 # Authentication & Roles
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 This app supports password-based authentication with role- and tenant-aware access control.
 
 ## Enable Auth

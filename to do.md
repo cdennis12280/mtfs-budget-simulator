@@ -88,6 +88,9 @@
 4. Add link to Section 151 user guide from header or settings.
 5. Add input‑to‑model mapping for additional line items (if needed).
 
+## Critical (Pitch Readiness)
+1. Record a 3–5 minute walkthrough video using `docs/WALKTHROUGH_VIDEO.md`.
+
 ## Deferred (Later)
 - Deploy a stable demo environment (hosted instance with auth, persistence, and data reset).
 

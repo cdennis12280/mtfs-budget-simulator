@@ -65,6 +65,18 @@ with st.sidebar:
         if os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true"
         else "Persistence: Session-only"
     )
+    if st.button("Reset demo tenant", disabled=not st.session_state.get("demo_mode", False)):
+        st.session_state.pop("forecast_snapshots", None)
+        st.session_state.pop("audit_log_entries", None)
+        st.session_state.pop("saved_scenarios", None)
+        if os.getenv("PERSISTENCE_ENABLED", "false").lower() == "true":
+            try:
+                from storage import save_json
+                save_json("snapshots.json", [])
+                save_json("audit_log.json", [])
+            except Exception:
+                pass
+        st.success("Demo tenant reset.")
 
 # Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""

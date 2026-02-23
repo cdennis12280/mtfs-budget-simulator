@@ -1,5 +1,8 @@
 # Multi-Tenancy & Data Isolation
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 Multi-tenancy is implemented as per-tenant storage namespaces.
 
 ## Enable Persistence

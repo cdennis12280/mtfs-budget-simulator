@@ -1,5 +1,8 @@
 # MTFS Budget Gap Simulator — Methodology & Technical Documentation
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## 1. Overview
 
 The **MTFS (Medium-Term Financial Strategy) Budget Gap Simulator** is an interactive financial planning tool designed for UK local authority Section 151 officers and Corporate Leadership Teams. It enables deterministic, transparent modelling of 4–5 year financial sustainability through a range of what-if scenarios.

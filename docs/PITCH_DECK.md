@@ -1,5 +1,8 @@
 # Pitch Deck Outline (5–7 minutes)
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## 1. Title & Purpose
 - MTFS Budget Gap Simulator
 - Decision support for Section 151 Officers

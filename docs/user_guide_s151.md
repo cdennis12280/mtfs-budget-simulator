@@ -1,5 +1,8 @@
 # MTFS Budget Simulator - Section 151 User Guide
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## Purpose
 This guide is for Section 151 Officers and senior finance leaders using the MTFS Budget Gap Simulator to set, test, and document the Council's medium-term financial strategy.
 

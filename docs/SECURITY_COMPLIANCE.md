@@ -1,5 +1,8 @@
 # Security & Compliance
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 This document outlines the minimum governance controls expected for S151 use.
 
 ## Access Control

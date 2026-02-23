@@ -15,6 +15,7 @@ from reserves_policy import ReservesPolicy
 from audit_log import get_audit_log
 from ui import apply_theme, page_header
 from billing import plan_label
+from storage import persistence_enabled, save_json
 from auth import require_auth, require_roles, auth_sidebar
 
 if "theme" not in st.session_state:
@@ -62,6 +63,15 @@ if st.button("Reset demo data", disabled=not st.session_state.get("demo_mode", F
     st.session_state.pop("base_budget", None)
     st.session_state.pop("opening_reserves", None)
     st.success("Demo data reset for this session.")
+
+if st.button("Reset demo tenant (snapshots + audit)", disabled=not st.session_state.get("demo_mode", False)):
+    st.session_state.pop("forecast_snapshots", None)
+    st.session_state.pop("audit_log_entries", None)
+    st.session_state.pop("saved_scenarios", None)
+    if persistence_enabled():
+        save_json("snapshots.json", [])
+        save_json("audit_log.json", [])
+    st.success("Demo tenant reset: snapshots and audit log cleared.")
 
 # Billing Status
 st.markdown("## Billing")

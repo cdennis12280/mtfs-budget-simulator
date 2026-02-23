@@ -1,5 +1,8 @@
 # Quick Start
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## Local Run (No Auth)
 ```bash
 streamlit run app/main.py

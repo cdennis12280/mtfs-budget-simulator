@@ -1,5 +1,8 @@
 # Deployment Guidance
 
+> Quick links: `docs/QUICK_START.md` for setup/run, `docs/DEPLOYMENT.md` for hosting, `docs/AUTHENTICATION.md` for access control.
+
+
 ## Recommended Runtime
 - Python 3.12
 - Streamlit 1.41+
