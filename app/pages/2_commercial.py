@@ -15,10 +15,15 @@ from commercial import CommercialProject
 from rag_rating import RAGRating
 from pwlb import get_latest_pwlb_rate
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 st.set_page_config(page_title="Commercial Tools", layout="wide")
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst"})
+auth_sidebar()
 page_header(
     "Commercial Projects - Portfolio Analysis",
     "Upload a CSV or use the sample portfolio. Expected columns: name, capital_cost, annual_income_target, life_years, operating_costs, capital_receipt."

@@ -14,8 +14,16 @@ sys.path.insert(0, str(modules_path))
 from reserves_policy import ReservesPolicy
 from audit_log import get_audit_log
 from ui import apply_theme, page_header
+from billing import plan_label
+from auth import require_auth, require_roles, auth_sidebar
 
+if "theme" not in st.session_state:
+    st.session_state["theme"] = "Light"
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin"})
+auth_sidebar()
 page_header("Settings and Preferences", "Customize your experience with the MTFS Budget Gap Simulator.")
 st.markdown("""
 <div class="app-callout">
@@ -25,8 +33,18 @@ st.markdown("""
 
 # Theme Selection
 st.markdown("## Theme")
-st.info("🌙 Dark theme is enforced for all users.")
-st.session_state['theme'] = 'Dark'
+theme_options = ["Light", "Dark", "Print-Friendly"]
+theme = st.selectbox(
+    "Theme",
+    options=theme_options,
+    index=theme_options.index(st.session_state.get("theme", "Light")),
+    help="Light is optimized for board papers; Dark is best for low-light rooms; Print-Friendly is minimal."
+)
+st.session_state["theme"] = theme
+
+# Billing Status
+st.markdown("## Billing")
+st.info(f"Plan: {plan_label()}")
 
 # Council Branding
 st.markdown("## Council Branding (Optional)")

@@ -23,11 +23,18 @@ from calculations import MTFSCalculator
 from sensitivity import SensitivityAnalysis
 from risk_advisor import load_risk_register, merge_sensitivity, build_stress_table, SUGGESTED_ACTIONS
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
+from billing import has_feature
 
 st.set_page_config(page_title="Reports - MTFS Simulator", layout="wide")
 
 # ===== HEADER =====
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst"})
+auth_sidebar()
+exports_enabled = has_feature("exports")
 page_header("Statutory Report Generator", "Generate audit-ready MTFS reports and data packs.")
 st.markdown("""
 <div class="app-callout">
@@ -236,7 +243,12 @@ st.markdown("#### Generate Report")
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    generate_btn = st.button("📄 Generate Statutory Report", use_container_width=True, type="primary")
+    generate_btn = st.button(
+        "📄 Generate Statutory Report",
+        use_container_width=True,
+        type="primary",
+        disabled=not exports_enabled
+    )
 
 with col2:
     st.markdown("")  # spacing
@@ -334,7 +346,7 @@ if generate_btn:
             
             audit_log.log_entry(
                 action='statutory_report_export',
-                user=st.session_state.get('user', 'Anonymous'),
+                user=st.session_state.get('auth_user', 'system'),
                 key='report_type',
                 old_value=None,
                 new_value='Multi-Scenario Statutory Report',
@@ -374,6 +386,8 @@ if generate_btn:
 st.markdown("---")
 st.markdown("#### 📊 DATA EXPORT FOR ANALYSIS & DASHBOARDS")
 st.markdown("Export scenario data to Excel for detailed analysis, BI integration, or sharing with stakeholders.")
+if not exports_enabled:
+    st.warning("Exports are disabled for this plan. Contact an administrator to enable.")
 
 export_col1, export_col2 = st.columns(2)
 
@@ -393,7 +407,12 @@ with export_col1:
     - Archiving alongside the statutory PDF
     """)
     
-    excel_export_btn = st.button("📁 Export to Excel", key="excel_export_btn", use_container_width=True)
+    excel_export_btn = st.button(
+        "📁 Export to Excel",
+        key="excel_export_btn",
+        use_container_width=True,
+        disabled=not exports_enabled
+    )
     
     if excel_export_btn:
         try:
@@ -421,7 +440,7 @@ with export_col1:
                 
                 audit_log.log_entry(
                     action='excel_data_export',
-                    user=st.session_state.get('user', 'Anonymous'),
+                    user=st.session_state.get('auth_user', 'system'),
                     key='export_type',
                     old_value=None,
                     new_value='Multi-Scenario Excel Export',
@@ -469,7 +488,12 @@ with export_col2:
     - Sharing interactive views with leadership
     """)
     
-    powerbi_export_btn = st.button("📊 Generate Power BI Template", key="powerbi_export_btn", use_container_width=True)
+    powerbi_export_btn = st.button(
+        "📊 Generate Power BI Template",
+        key="powerbi_export_btn",
+        use_container_width=True,
+        disabled=not exports_enabled
+    )
     
     if powerbi_export_btn:
         try:
@@ -489,7 +513,7 @@ with export_col2:
                 audit_log = get_audit_log()
                 audit_log.log_entry(
                     action='power_bi_template_export',
-                    user=st.session_state.get('user', 'Anonymous'),
+                    user=st.session_state.get('auth_user', 'system'),
                     key='export_type',
                     old_value=None,
                     new_value='Power BI Configuration Template',

@@ -15,9 +15,20 @@ try:
 except Exception:  # pragma: no cover
     st = None
 
+try:
+    from storage import load_json, save_json, persistence_enabled, prune_list
+except Exception:  # pragma: no cover
+    load_json = save_json = None
+    persistence_enabled = lambda: False
+    prune_list = lambda *args, **kwargs: None
+
 
 def load_snapshots(path: Optional[Path] = None) -> List[Dict[str, Any]]:
     if st is not None:
+        if persistence_enabled() and load_json is not None:
+            stored = load_json("snapshots.json", [])
+            if stored:
+                return stored
         return st.session_state.get('forecast_snapshots', [])
     if path is None or not path.exists():
         return []
@@ -30,6 +41,9 @@ def load_snapshots(path: Optional[Path] = None) -> List[Dict[str, Any]]:
 def save_snapshots(path: Optional[Path], snapshots: List[Dict[str, Any]]) -> None:
     if st is not None:
         st.session_state['forecast_snapshots'] = snapshots
+        if persistence_enabled() and save_json is not None:
+            save_json("snapshots.json", snapshots)
+            prune_list("snapshots.json", keep_last=200)
         return
     if path is None:
         return

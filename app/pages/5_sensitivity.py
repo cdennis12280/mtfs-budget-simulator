@@ -16,8 +16,13 @@ sys.path.insert(0, str(modules_path))
 from calculations import MTFSCalculator
 from sensitivity import SensitivityAnalysis
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst"})
+auth_sidebar()
 page_header("Sensitivity Analysis", "Test how robust the MTFS is to changes in key assumptions.")
 st.markdown("""
 <div class="app-callout">

@@ -10,13 +10,18 @@ import sys
 modules_path = Path(__file__).parent.parent.parent / 'modules'
 sys.path.insert(0, str(modules_path))
 
-from ui import apply_theme, page_header
+from ui import apply_theme, page_header, app_link
+from auth import require_auth, require_roles, auth_sidebar
 from snapshots import add_snapshot
 from audit_log import get_audit_log
 from calculations import MTFSCalculator
 import plotly.graph_objects as go
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst"})
+auth_sidebar()
 page_header("MTFS Guided Wizard", "A step-by-step flow for Section 151 budget setting and reporting.")
 
 st.markdown("""
@@ -231,13 +236,13 @@ if step == "3. Core Assumptions":
 if step == "4. Risk Stressing":
     st.markdown("### Risk Stressing")
     st.markdown("Use the Risk Advisor for targeted stress tests and composite scenarios.")
-    st.markdown("[Open Risk Advisor](/risk_advisor)")
+    st.markdown(f"[Open Risk Advisor]({app_link('/risk_advisor')})")
     st.markdown("You can also apply presets on the Dashboard sidebar.")
     proj, kpis = live_kpis()
     st.markdown("### Current Position")
     st.write(f"Cumulative gap: £{kpis['total_4_year_gap']:.1f}m")
     live_charts(proj)
-    st.markdown("[Open Dashboard](/)")
+    st.markdown(f"[Open Dashboard]({app_link('/')})")
 
 # Step 5: Governance snapshot
 if step == "5. Governance Snapshot":
@@ -285,6 +290,6 @@ if step == "5. Governance Snapshot":
 if step == "6. Export & Report":
     st.markdown("### Export and Report")
     st.markdown("Generate statutory reports and data packs for governance.")
-    st.markdown("[Open Reports page](/reports)")
+    st.markdown(f"[Open Reports page]({app_link('/reports')})")
     st.markdown("For audit trails and evidence, export logs from the Audit page.")
-    st.markdown("[Open Audit page](/audit)")
+    st.markdown(f"[Open Audit page]({app_link('/audit')})")

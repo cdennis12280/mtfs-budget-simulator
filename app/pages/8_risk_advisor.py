@@ -23,8 +23,13 @@ from risk_advisor import (
 )
 from audit_log import get_audit_log
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst", "Read-only"})
+auth_sidebar()
 page_header("Risk and Sensitivity Scenario Advisor", "Link the corporate risk register to model sensitivity and generate stress tests.")
 st.markdown("""
 <div class="app-callout">

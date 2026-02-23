@@ -30,7 +30,8 @@ from audit_log import get_audit_log
 from reserves_policy import ReservesPolicy, ReservesPolicyChecker
 from risk_advisor import load_risk_register, build_stress_table
 from snapshots import add_snapshot, load_snapshots
-from ui import apply_theme, page_header
+from ui import apply_theme, page_header, app_link
+from auth import require_auth, require_roles, auth_sidebar
 
 
 # ============================================================================
@@ -47,20 +48,13 @@ st.set_page_config(
 # Apply UI theme from settings
 apply_theme()
 
+if not require_auth():
+    st.stop()
+auth_sidebar()
+
 # Remove Streamlit branding overlays and tighten default layout/padding for S151 presentation
 st.markdown("""
 <style>
-    /* Metric box styling */
-    .metric-box {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 5px;
-        margin: 10px 0;
-    }
-    .red-text { color: #d62728; font-weight: bold; }
-    .amber-text { color: #ff7f0e; font-weight: bold; }
-    .green-text { color: #2ca02c; font-weight: bold; }
-
     /* Hide Streamlit header, main menu (hamburger) and footer */
     #MainMenu {visibility: hidden !important;}
     header {visibility: hidden !important;}
@@ -70,39 +64,145 @@ st.markdown("""
     .block-container {padding-top: 0.5rem; padding-left: 0.75rem; padding-right: 0.75rem;}
     .stSidebar {padding-top: 0.5rem;}
 
-    /* Ensure download buttons and panels still visible */
-    .stDownloadButton, .stButton {z-index: 9999}
+    /* Topbar */
+    .topbar {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 12px 18px;
+        box-shadow: var(--shadow);
+    }
+    .topbar-inner {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+    .brand-mark {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--accent) 18%, white);
+        border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-weight:700;
+        color: var(--accent);
+        font-size: 13px;
+        letter-spacing: 0.06em;
+    }
+    .brand-title { font-weight: 700; font-size: 18px; }
+    .brand-subtitle { font-size: 12px; color: var(--muted); }
+    .topbar-nav { display:flex; align-items:center; gap: 8px; flex-wrap: wrap; }
+    .nav-link {
+        color: var(--accent);
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        background: color-mix(in srgb, var(--accent) 10%, white);
+    }
+    .nav-link:hover { text-decoration: none; filter: brightness(0.98); }
+
+    .s151-strip {
+        margin-top: 14px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 10px 14px;
+        box-shadow: var(--shadow-soft);
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+    .s151-item {
+        background: var(--panel-alt);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px 10px;
+    }
+    .s151-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 4px;
+    }
+    .s151-value {
+        font-weight: 700;
+        font-size: 18px;
+    }
+    .rag-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        background: rgba(0,0,0,0.06);
+        color: white;
+    }
+
+    @media (max-width: 900px) {
+        .topbar-nav { gap: 6px; }
+        .nav-link { padding: 4px 8px; font-size: 11px; }
+        .brand-title { font-size: 16px; }
+        .brand-mark { width: 32px; height: 32px; font-size: 11px; }
+        .s151-strip { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+        .brand-subtitle { display: none; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Custom non-collapsible header (professional site banner)
-header_color = st.session_state.get('council_colour', '#0b3d91')
+council_name = st.session_state.get("council_name", "").strip()
+header_title = council_name if council_name else "MTFS Budget Gap Simulator"
 st.markdown("""
-<div style='background:{header_color}; padding:10px 16px; color: white; border-radius:10px; border:1px solid rgba(255,255,255,0.2);'>
-    <div style='display:flex; align-items:center; justify-content:space-between;'>
-        <div style='display:flex; align-items:center;'>
-            <img src='https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg' style='height:36px; margin-right:12px; filter: invert(1);'/>
+<div class='topbar'>
+    <div class='topbar-inner'>
+        <div style='display:flex; align-items:center; gap:12px;'>
+            <div class='brand-mark'>MTFS</div>
             <div>
-                <div style='font-weight:700; font-size:18px;'>MTFS Budget Gap Simulator</div>
-                <div style='font-size:12px; opacity:0.85;'>Decision-support for Section 151 Officers — v1.0</div>
+                <div class='brand-title'>{header_title}</div>
+                <div class='brand-subtitle'>Decision-support for Section 151 Officers — v1.0</div>
             </div>
         </div>
-        <div style='font-size:13px; opacity:0.95;'>
-            <a href='/' style='color:#ffd966; margin-right:12px;'>Dashboard</a>
-            <a href='/wizard' style='color:#ffd966; margin-right:12px;'>Wizard</a>
-            <a href='/inputs' style='color:#ffd966; margin-right:12px;'>Inputs</a>
-            <a href='/commercial' style='color:#ffd966; margin-right:12px;'>Commercial</a>
-            <a href='/scenarios-compare' style='color:#ffd966; margin-right:12px;'>Compare</a>
-            <a href='/sensitivity-analysis' style='color:#ffd966; margin-right:12px;'>Sensitivity</a>
-            <a href='/risk_advisor' style='color:#ffd966; margin-right:12px;'>Risk Advisor</a>
-            <a href='/reports' style='color:#ffd966; margin-right:12px;'>Reports</a>
-            <a href='/audit' style='color:#ffd966; margin-right:12px;'>Audit</a>
-            <a href='/snapshots' style='color:#ffd966; margin-right:12px;'>Snapshots</a>
-            <a href='/settings' style='color:#ffd966;'>Settings</a>
+        <div class='topbar-nav'>
+            <a class='nav-link' href='{dashboard_link}'>Dashboard</a>
+            <a class='nav-link' href='{wizard_link}'>Wizard</a>
+            <a class='nav-link' href='{inputs_link}'>Inputs</a>
+            <a class='nav-link' href='{commercial_link}'>Commercial</a>
+            <a class='nav-link' href='{compare_link}'>Compare</a>
+            <a class='nav-link' href='{sensitivity_link}'>Sensitivity</a>
+            <a class='nav-link' href='{risk_link}'>Risk Advisor</a>
+            <a class='nav-link' href='{reports_link}'>Reports</a>
+            <a class='nav-link' href='{audit_link}'>Audit</a>
+            <a class='nav-link' href='{snapshots_link}'>Snapshots</a>
+            <a class='nav-link' href='{settings_link}'>Settings</a>
         </div>
     </div>
 </div>
-""".format(header_color=header_color), unsafe_allow_html=True)
+""".format(
+    header_title=header_title,
+    dashboard_link=app_link("/"),
+    wizard_link=app_link("/wizard"),
+    inputs_link=app_link("/inputs"),
+    commercial_link=app_link("/commercial"),
+    compare_link=app_link("/scenarios-compare"),
+    sensitivity_link=app_link("/sensitivity-analysis"),
+    risk_link=app_link("/risk_advisor"),
+    reports_link=app_link("/reports"),
+    audit_link=app_link("/audit"),
+    snapshots_link=app_link("/snapshots"),
+    settings_link=app_link("/settings"),
+), unsafe_allow_html=True)
 
 
 # ============================================================================
@@ -621,6 +721,35 @@ page_header(
     "Interactive financial planning tool for Section 151 and Corporate Leadership Teams"
 )
 
+gap_amount = kpis['total_4_year_gap']
+gap_pct = (gap_amount / base_budget_year1 * 100) if base_budget_year1 else 0.0
+final_reserves = projection_df.iloc[-1]['Closing_Reserves']
+policy_target = st.session_state.get('reserves_policy_target', 10.0)
+rag_color_map = {"RED": "#d62728", "AMBER": "#ff7f0e", "GREEN": "#2ca02c"}
+rag_color = rag_color_map.get(rag_rating, "#6b7280")
+
+st.markdown(f"""
+<div class="s151-strip">
+    <div class="s151-item">
+        <div class="s151-label">Sustainability RAG</div>
+        <div class="s151-value">
+            <span class="rag-pill" style="background:{rag_color};">{rag_rating}</span>
+        </div>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">{rag_reasoning}</div>
+    </div>
+    <div class="s151-item">
+        <div class="s151-label">4-Year Funding Gap</div>
+        <div class="s151-value">£{gap_amount:.1f}m</div>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">{gap_pct:.1f}% of Year 1 budget</div>
+    </div>
+    <div class="s151-item">
+        <div class="s151-label">Final Reserves</div>
+        <div class="s151-value">£{final_reserves:.1f}m</div>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">Policy target {policy_target:.1f}%</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <div class="app-callout">
   <b>Quick Start</b><br/>
@@ -629,6 +758,10 @@ st.markdown("""
   3. Save a snapshot and export reports for governance
 </div>
 """, unsafe_allow_html=True)
+
+share_url = app_link("/")
+st.markdown(f"[Open shareable link (same session)]({share_url})")
+st.markdown("[Open new clean session](/)")
 st.markdown("---")
 
 # Help & Key Terms
@@ -754,7 +887,7 @@ if risk_top is not None:
             delta=f"{risk_top['Driver']}",
             help="Highest weighted impact (risk score × gap impact)."
         )
-    st.markdown("[Open Risk Advisor](/risk_advisor)")
+    st.markdown(f"[Open Risk Advisor]({app_link('/risk_advisor')})")
 
 st.markdown("---")
 

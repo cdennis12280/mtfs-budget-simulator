@@ -13,6 +13,13 @@ try:
 except Exception:  # pragma: no cover
     st = None
 
+try:
+    from storage import load_json, save_json, persistence_enabled, prune_list
+except Exception:  # pragma: no cover
+    load_json = save_json = None
+    persistence_enabled = lambda: False
+    prune_list = lambda *args, **kwargs: None
+
 @dataclass
 class AuditEntry:
     """Single audit log entry"""
@@ -34,6 +41,8 @@ class AuditLog:
                   old_value: Optional[Any] = None, new_value: Optional[Any] = None, 
                   notes: str = ""):
         """Write a new audit entry to the log file (append mode)"""
+        if st is not None and user == "system":
+            user = st.session_state.get("auth_user", "system")
         entry = AuditEntry(
             timestamp=datetime.now().isoformat(),
             action=action,
@@ -48,13 +57,23 @@ class AuditLog:
             if 'audit_log_entries' not in st.session_state:
                 st.session_state['audit_log_entries'] = []
             st.session_state['audit_log_entries'].append(entry_dict)
+            if persistence_enabled() and save_json is not None:
+                entries = load_json("audit_log.json", [])
+                entries.append(entry_dict)
+                save_json("audit_log.json", entries)
+                prune_list("audit_log.json", keep_last=1000)
         else:
             self._entries.append(entry_dict)
     
     def read_all(self) -> list:
         """Read all audit entries from log file"""
         if st is not None:
-            return st.session_state.get('audit_log_entries', [])
+            entries = st.session_state.get('audit_log_entries', [])
+            if persistence_enabled() and load_json is not None:
+                stored = load_json("audit_log.json", [])
+                if stored:
+                    return stored
+            return entries
         return self._entries
     
     def read_recent(self, n: int = 100) -> list:

@@ -15,8 +15,13 @@ sys.path.insert(0, str(modules_path))
 
 from audit_log import get_audit_log
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin"})
+auth_sidebar()
 page_header("Audit Log and Compliance", "View and export audit trail of all actions, assumption changes, and exports.")
 st.markdown("""
 <div class="app-callout">

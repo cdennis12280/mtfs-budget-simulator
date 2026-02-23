@@ -7,8 +7,13 @@ modules_path = Path(__file__).parent.parent.parent / 'modules'
 sys.path.insert(0, str(modules_path))
 
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst"})
+auth_sidebar()
 page_header(
     "Inputs - Budget and Line Items",
     "Upload or edit the authoritative inputs for the MTFS model."

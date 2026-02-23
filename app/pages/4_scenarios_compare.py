@@ -18,8 +18,13 @@ from calculations import MTFSCalculator
 from scenarios import Scenarios
 from rag_rating import RAGRating
 from ui import apply_theme, page_header
+from auth import require_auth, require_roles, auth_sidebar
 
 apply_theme()
+if not require_auth():
+    st.stop()
+require_roles({"Admin", "Analyst", "Read-only"})
+auth_sidebar()
 page_header("Scenario Comparison", "Compare multiple scenarios side by side to inform decision-making.")
 st.markdown("""
 <div class="app-callout">
