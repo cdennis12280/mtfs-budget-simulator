@@ -242,11 +242,15 @@ st.markdown("""
             <a class='nav-link' href='{audit_link}'>Audit</a>
             <a class='nav-link' href='{snapshots_link}'>Snapshots</a>
             <a class='nav-link' href='{settings_link}'>Settings</a>
+            <a class='nav-link' href='{user_guide_link}'>User Guide</a>
+            <a class='nav-link' href='/'>New Clean Session</a>
         </div>
     </div>
 </div>
 """.format(
     header_title=header_title,
+    role_badge=role_badge,
+    demo_badge=demo_badge,
     dashboard_link=app_link("/"),
     wizard_link=app_link("/wizard"),
     inputs_link=app_link("/inputs"),
@@ -258,6 +262,7 @@ st.markdown("""
     audit_link=app_link("/audit"),
     snapshots_link=app_link("/snapshots"),
     settings_link=app_link("/settings"),
+    user_guide_link=app_link("/user_guide"),
 ), unsafe_allow_html=True)
 
 
@@ -911,11 +916,6 @@ st.markdown("""
   3. Save a snapshot and export reports for governance
 </div>
 """, unsafe_allow_html=True)
-
-share_url = app_link("/")
-st.markdown(f"[Open shareable link (same session)]({share_url})")
-st.markdown("[Open new clean session](/)")
-st.markdown("---")
 
 # Help & Key Terms
 col_h1, col_h2, col_h3 = st.columns([2, 1, 1])
